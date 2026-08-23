@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fair Selection Using Standardization (Z-Score)</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+    background:#f4f7fb;
+    padding:25px;
+}
+
+.container{
+    max-width:1400px;
+    margin:auto;
+}
+
+h1{
+    text-align:center;
+    color:#0d47a1;
+    margin-bottom:10px;
+}
+
+.subtitle{
+    text-align:center;
+    color:#555;
+    margin-bottom:25px;
+}
+
+button{
+    display:block;
+    margin:0 auto 25px;
+    padding:12px 28px;
+    border:none;
+    border-radius:8px;
+    background:#1565c0;
+    color:white;
+    font-size:16px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#0d47a1;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-bottom:25px;
+    background:white;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:8px;
+    text-align:center;
+}
+
+th{
+    background:#1565c0;
+    color:white;
+}
+
+.section{
+    margin-top:25px;
+}
+
+.cards{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+}
+
+.card{
+    flex:1;
+    min-width:220px;
+    background:white;
+    border-radius:8px;
+    padding:18px;
+    box-shadow:0 3px 8px rgba(0,0,0,.15);
+}
+
+.card h3{
+    color:#1565c0;
+    margin-bottom:10px;
+}
+
+.highlight{
+    background:#e3f2fd;
+    font-weight:bold;
+}
+
+.compare{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+}
+
+.small{
+    flex:1;
+    min-width:350px;
+}
+
+.chart-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+    gap:20px;
+}
+
+.chart-card{
+    background:white;
+    border-radius:8px;
+    padding:18px;
+    box-shadow:0 3px 8px rgba(0,0,0,.15);
+}
+
+.chart-card h2{
+    color:#1565c0;
+    font-size:20px;
+    margin-bottom:12px;
+}
+
+.line-chart{
+    display:block;
+    width:100%;
+    height:auto;
+}
+
+.footer{
+    margin-top:30px;
+    text-align:center;
+    color:#666;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Fair Selection Using Standardization</h1>
+<p class="subtitle">Z-Score Normalization Demonstration</p>
+
+<button onclick="generateData()">Generate New Data</button>
+
+<div class="cards" id="statsCards"></div>
+
+<div class="compare">
+
+<div class="small">
+<h2>Top 5 (Raw Marks)</h2>
+<table id="rawTable">
+<thead>
+<tr>
+<th>Rank</th>
+<th>Student</th>
+<th>Panel</th>
+<th>Marks</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="small">
+<h2>Top 5 (Z-Score)</h2>
+<table id="zTable">
+<thead>
+<tr>
+<th>Rank</th>
+<th>Student</th>
+<th>Panel</th>
+<th>Z-Score</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+</div>
+
+<div class="section">
+<div class="chart-grid">
+<div class="chart-card">
+<h2>Panel Mean by Trial</h2>
+<svg id="meanChart" class="line-chart" viewBox="0 0 460 280" role="img" aria-label="Line chart of panel means across trials"></svg>
+</div>
+<div class="chart-card">
+<h2>Panel Standard Deviation by Trial</h2>
+<svg id="stdChart" class="line-chart" viewBox="0 0 460 280" role="img" aria-label="Line chart of panel standard deviations across trials"></svg>
+</div>
+</div>
+</div>
+
+<div class="section">
+<h2>Comparison</h2>
+
+<table id="comparison">
+<thead>
+<tr>
+<th>Method</th>
+<th>Panel A</th>
+<th>Panel B</th>
+<th>Panel C</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+</div>
+
+<div class="section">
+<h2>Student Dataset</h2>
+<table id="studentTable">
+<thead>
+<tr>
+<th>ID</th>
+<th>Student</th>
+<th>Panel</th>
+<th>Marks</th>
+<th>Z-Score</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="footer">
+Refresh using "Generate New Data" to simulate another interview session.
+</div>
+
+</div>
+
+<script>
+
+let students=[];
+let trialHistory=[];
+
+function rand(min,max){
+    return Math.floor(Math.random()*(max-min+1))+min;
+}
+
+function mean(arr){
+    return arr.reduce((a,b)=>a+b,0)/arr.length;
+}
+
+function std(arr){
+
+    let m=mean(arr);
+
+    let variance=arr.reduce((sum,x)=>sum+(x-m)*(x-m),0)/arr.length;
+
+    return Math.sqrt(variance);
+}
+
+function generateData(){
+
+students=[];
+
+let id=1;
+
+["A","B","C"].forEach(panel=>{
+
+for(let i=0;i<10;i++){
+
+let marks;
+
+if(panel==="A") marks=rand(70,90);
+if(panel==="B") marks=rand(50,70);
+if(panel==="C") marks=rand(40,80);
+
+students.push({
+
+id:id,
+
+name:"Student "+id,
+
+panel,
+
+marks,
+
+z:0
+
+});
+
+id++;
+
+}
+
+});
+
+let stats=calculateStats();
+
+trialHistory.push({
+mean:{
+A:stats.A.mean,
+B:stats.B.mean,
+C:stats.C.mean
+},
+std:{
+A:stats.A.std,
+B:stats.B.std,
+C:stats.C.std
+}
+});
+
+renderStats(stats);
+
+renderTables();
+
+}
+
+function calculateStats(){
+
+let stats={};
+
+["A","B","C"].forEach(panel=>{
+
+let arr=students.filter(s=>s.panel===panel).map(s=>s.marks);
+
+stats[panel]={
+
+mean:mean(arr),
+
+std:std(arr)
+
+};
+
+});
+
+students.forEach(s=>{
+
+s.z=(s.marks-stats[s.panel].mean)/stats[s.panel].std;
+
+});
+
+return stats;
+
+}
+
+function renderStats(stats){
+
+let html="";
+
+["A","B","C"].forEach(panel=>{
+
+html+=`
+<div class="card">
+<h3>Panel ${panel}</h3>
+<p><b>Mean:</b> ${stats[panel].mean.toFixed(2)}</p>
+<p><b>Std Dev:</b> ${stats[panel].std.toFixed(2)}</p>
+</div>
+`;
+
+});
+
+document.getElementById("statsCards").innerHTML=html;
+
+renderHistoryChart("meanChart", "mean");
+renderHistoryChart("stdChart", "std");
+
+}
+
+function renderHistoryChart(chartId,metric){
+
+const svg=document.getElementById(chartId);
+const panels=["A","B","C"];
+const colors={A:"#1565c0",B:"#2e7d32",C:"#c62828"};
+const width=460;
+const height=280;
+const left=55;
+const right=25;
+const top=30;
+const bottom=55;
+const plotWidth=width-left-right;
+const plotHeight=height-top-bottom;
+const values=trialHistory.flatMap(trial=>panels.map(panel=>trial[metric][panel]));
+const maxValue=Math.max(...values);
+const minValue=Math.min(0,...values);
+const range=Math.max(maxValue-minValue,1);
+const yMax=Math.ceil((maxValue+range*.12)*10)/10;
+const x=index=>trialHistory.length===1 ? left+plotWidth/2 : left+(plotWidth/(trialHistory.length-1))*index;
+const y=value=>top+plotHeight-((value-minValue)/(yMax-minValue))*plotHeight;
+const labelStep=Math.max(1,Math.ceil(trialHistory.length/10));
+let html="";
+
+for(let i=0;i<=4;i++){
+const value=minValue+(yMax-minValue)*(i/4);
+const yPos=y(value);
+html+=`<line x1="${left}" y1="${yPos}" x2="${width-right}" y2="${yPos}" stroke="#e0e0e0" />`;
+html+=`<text x="${left-9}" y="${yPos+4}" text-anchor="end" font-size="11" fill="#666">${value.toFixed(1)}</text>`;
+}
+
+html+=`<line x1="${left}" y1="${top}" x2="${left}" y2="${height-bottom}" stroke="#777" />`;
+html+=`<line x1="${left}" y1="${height-bottom}" x2="${width-right}" y2="${height-bottom}" stroke="#777" />`;
+
+trialHistory.forEach((trial,index)=>{
+if(index%labelStep===0 || index===trialHistory.length-1){
+html+=`<text x="${x(index)}" y="${height-bottom+23}" text-anchor="middle" font-size="11" fill="#333">${index+1}</text>`;
+}
+});
+
+panels.forEach(panel=>{
+const points=trialHistory.map((trial,index)=>`${x(index)},${y(trial[metric][panel])}`).join(" ");
+html+=`<polyline points="${points}" fill="none" stroke="${colors[panel]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`;
+trialHistory.forEach((trial,index)=>{
+html+=`<circle cx="${x(index)}" cy="${y(trial[metric][panel])}" r="4" fill="${colors[panel]}" />`;
+});
+});
+
+panels.forEach((panel,index)=>{
+const legendX=left+index*110;
+html+=`<line x1="${legendX}" y1="14" x2="${legendX+18}" y2="14" stroke="${colors[panel]}" stroke-width="3" />`;
+html+=`<text x="${legendX+24}" y="18" font-size="12" fill="#333">Panel ${panel}</text>`;
+});
+
+html+=`<text x="${left+plotWidth/2}" y="${height-8}" text-anchor="middle" font-size="12" fill="#555">Trial</text>`;
+svg.innerHTML=html;
+
+}
+
+function renderTables(){
+
+let tbody=document.querySelector("#studentTable tbody");
+
+tbody.innerHTML="";
+
+students.forEach(s=>{
+
+tbody.innerHTML+=`
+<tr>
+<td>${s.id}</td>
+<td>${s.name}</td>
+<td>${s.panel}</td>
+<td>${s.marks}</td>
+<td>${s.z.toFixed(3)}</td>
+</tr>
+`;
+
+});
+
+let raw=[...students].sort((a,b)=>b.marks-a.marks).slice(0,5);
+
+let z=[...students].sort((a,b)=>b.z-a.z).slice(0,5);
+
+let rawBody=document.querySelector("#rawTable tbody");
+
+rawBody.innerHTML="";
+
+raw.forEach((s,i)=>{
+
+rawBody.innerHTML+=`
+<tr>
+<td>${i+1}</td>
+<td>${s.name}</td>
+<td>${s.panel}</td>
+<td>${s.marks}</td>
+</tr>
+`;
+
+});
+
+let zBody=document.querySelector("#zTable tbody");
+
+zBody.innerHTML="";
+
+z.forEach((s,i)=>{
+
+zBody.innerHTML+=`
+<tr>
+<td>${i+1}</td>
+<td>${s.name}</td>
+<td>${s.panel}</td>
+<td>${s.z.toFixed(3)}</td>
+</tr>
+`;
+
+});
+
+let rawCount={A:0,B:0,C:0};
+
+raw.forEach(s=>rawCount[s.panel]++);
+
+let zCount={A:0,B:0,C:0};
+
+z.forEach(s=>zCount[s.panel]++);
+
+document.querySelector("#comparison tbody").innerHTML=`
+<tr>
+<td><b>Raw Marks</b></td>
+<td>${rawCount.A}</td>
+<td>${rawCount.B}</td>
+<td>${rawCount.C}</td>
+</tr>
+<tr>
+<td><b>Z-Score</b></td>
+<td>${zCount.A}</td>
+<td>${zCount.B}</td>
+<td>${zCount.C}</td>
+</tr>
+`;
+
+}
+
+generateData();
+
+</script>
+
+</body>
+</html>
