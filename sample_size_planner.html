@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sample size planner</title>
+<style>
+  :root{--ink:#111827;--body:#3F4650;--muted:#8A9099;--acc:#9B1C2E;
+        --tint:#F5F1F1;--grey:#F4F4F5;--line:#E3E3E6}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--body);
+       font-family:Calibri,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+  .wrap{max-width:1120px;margin:0 auto;padding:32px 28px 60px}
+  h1{font-size:30px;color:var(--ink);margin:0 0 6px;font-weight:700}
+  .sub{color:var(--muted);font-style:italic;margin:0 0 24px}
+  .tabs{display:flex;gap:10px;margin-bottom:20px}
+  .tabs button{font-family:inherit;font-size:15px;padding:9px 20px;border-radius:7px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .tabs button.on{border-color:var(--acc);background:var(--acc);color:#fff}
+  .bar{background:var(--grey);border-radius:10px;padding:18px 20px;display:flex;
+       flex-wrap:wrap;gap:28px;align-items:center;margin-bottom:22px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld label{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  select,input[type=number]{padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;
+         color:var(--ink);font-family:inherit;font-size:15px;width:150px}
+  input[type=range]{width:190px;accent-color:var(--acc)}
+  .answer{background:var(--tint);border-radius:10px;padding:22px 26px;margin-bottom:20px}
+  .answer .lab{font-size:13px;color:var(--muted);letter-spacing:.3px}
+  .answer .big{font-size:46px;font-weight:700;color:var(--acc);line-height:1.1;margin:4px 0 8px}
+  .answer .work{font-size:15px;color:var(--body)}
+  .row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+  .stat{background:var(--grey);border-radius:10px;padding:14px 16px}
+  .stat .lab{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  .stat .val{font-size:21px;font-weight:700;color:var(--ink);margin-top:4px}
+  .panel{border-radius:10px;padding:16px 20px 14px;background:var(--grey);margin-bottom:20px}
+  .panel h2{font-size:18px;margin:0 0 2px;color:var(--ink);font-weight:700}
+  .panel p.note{font-size:13px;color:var(--muted);margin:0 0 10px}
+  canvas{width:100%;height:270px;display:block;background:#fff;border-radius:6px}
+  .foot{background:var(--tint);border-radius:10px;padding:18px 22px;font-size:15px}
+  .foot b{color:var(--acc)}
+  ul{margin:8px 0 0;padding-left:20px} li{margin-bottom:5px}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sample size planner</h1>
+  <p class="sub">Decide the margin of error and the confidence level first, then read off the sample size the study needs.</p>
+
+  <div class="tabs">
+    <button id="tMean" class="on">For a mean</button>
+    <button id="tProp">For a proportion</button>
+  </div>
+
+  <div class="bar" id="barMean">
+    <div class="fld">
+      <label>Confidence level</label>
+      <select class="lvl">
+        <option value="1.645">90 percent</option>
+        <option value="1.96" selected>95 percent</option>
+        <option value="2.33">98 percent</option>
+        <option value="2.575">99 percent</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Population standard deviation &sigma;</label>
+      <input type="number" id="sg" value="4" step="0.1" min="0.1">
+    </div>
+    <div class="fld">
+      <label>Margin of error E wanted</label>
+      <input type="number" id="E" value="1" step="0.1" min="0.01">
+    </div>
+  </div>
+
+  <div class="bar hide" id="barProp">
+    <div class="fld">
+      <label>Confidence level</label>
+      <select class="lvl">
+        <option value="1.645">90 percent</option>
+        <option value="1.96" selected>95 percent</option>
+        <option value="2.33">98 percent</option>
+        <option value="2.575">99 percent</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Planning value of p = <span id="pval">0.50</span></label>
+      <input type="range" id="p" min="1" max="99" value="50">
+    </div>
+    <div class="fld">
+      <label>Margin of error in percentage points = <span id="Epval">3.0</span></label>
+      <input type="range" id="Ep" min="5" max="150" value="30">
+    </div>
+  </div>
+
+  <div class="answer">
+    <div class="lab">Required sample size, always rounded up</div>
+    <div class="big" id="nAns">.</div>
+    <div class="work" id="work"></div>
+  </div>
+
+  <div class="row">
+    <div class="stat"><div class="lab">Critical value z</div><div class="val" id="z">1.96</div></div>
+    <div class="stat"><div class="lab" id="lab2">Spread used</div><div class="val" id="v2">.</div></div>
+    <div class="stat"><div class="lab">Actual margin achieved at that n</div><div class="val" id="v3">.</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Sample size against the margin of error</h2>
+    <p class="note">At the chosen confidence level and spread. The marker sits at your current tolerance.</p>
+    <canvas id="cv"></canvas>
+  </div>
+
+  <div class="foot">
+    <p style="margin:0 0 8px"><b>What the curve is telling you.</b></p>
+    <ul>
+      <li>The curve rises as the inverse square of E. Halving the tolerance multiplies the required sample by four, which is a fourfold rise in field cost for a twofold gain in precision.</li>
+      <li>For a proportion, leave p at 0.50 unless a pilot study gives you something better. That is the worst case, so the resulting n is guaranteed to be enough.</li>
+      <li>Try the classic settings: 95 percent confidence with a tolerance of 3 percentage points gives 1068, which is why national opinion polls settle near a thousand respondents.</li>
+      <li>Always round up. A calculated 43.30 means 44, because 43 would leave the margin slightly wider than the one promised.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+var mode='mean';
+
+function z(){
+  var sel = document.querySelectorAll('.lvl');
+  return +(mode==='mean' ? sel[0].value : sel[1].value);
+}
+function setup(cv){
+  var dpr=window.devicePixelRatio||1, r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  var ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,r.width,r.height);
+  return {ctx:ctx,w:r.width,h:r.height};
+}
+function nFor(E){
+  var zz=z();
+  if(mode==='mean'){
+    var sg=+document.getElementById('sg').value;
+    return Math.pow(zz*sg/E,2);
+  }
+  var p=+document.getElementById('p').value/100;
+  return p*(1-p)*Math.pow(zz/E,2);
+}
+
+function drawCurve(E0){
+  var s=setup(document.getElementById('cv')), ctx=s.ctx, w=s.w, h=s.h;
+  var padL=58,padR=20,padT=14,padB=34;
+  var eMin=E0/3, eMax=E0*3;
+  var nMax=nFor(eMin);
+  function px(e){ return padL+(e-eMin)/(eMax-eMin)*(w-padL-padR); }
+  function py(n){ return h-padB-(n/nMax)*(h-padT-padB); }
+  ctx.strokeStyle='#EFEFF1'; ctx.lineWidth=1;
+  for(var g=0;g<=4;g++){
+    var yy=padT+(h-padT-padB)*g/4;
+    ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(w-padR,yy); ctx.stroke();
+    ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+    ctx.fillText(Math.round(nMax*(1-g/4)), 8, yy+4);
+  }
+  ctx.strokeStyle='#9B1C2E'; ctx.lineWidth=3; ctx.beginPath();
+  for(var i=0;i<=300;i++){
+    var e=eMin+(eMax-eMin)*i/300;
+    if(i===0) ctx.moveTo(px(e),py(nFor(e))); else ctx.lineTo(px(e),py(nFor(e)));
+  }
+  ctx.stroke();
+  var n0=nFor(E0);
+  ctx.strokeStyle='#8A9099'; ctx.setLineDash([4,3]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(px(E0),py(n0)); ctx.lineTo(px(E0),h-padB); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(padL,py(n0)); ctx.lineTo(px(E0),py(n0)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#111827';
+  ctx.beginPath(); ctx.arc(px(E0),py(n0),5,0,2*Math.PI); ctx.fill();
+  ctx.font='12.5px Calibri, sans-serif';
+  ctx.fillText('n = '+Math.ceil(n0), Math.min(px(E0)+8,w-90), py(n0)-10);
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  var sc = (mode==='mean') ? 1 : 100;
+  var unit = (mode==='mean') ? '' : ' points';
+  ctx.fillText((eMin*sc).toFixed(2)+unit, padL, h-14);
+  ctx.fillText((eMax*sc).toFixed(2)+unit, w-padR-58, h-14);
+  ctx.fillText('Margin of error you are willing to tolerate', w/2-108, h-2);
+}
+
+function render(){
+  var zz=z(), E, n, work;
+  if(mode==='mean'){
+    var sg=+document.getElementById('sg').value;
+    E=+document.getElementById('E').value;
+    if(!(sg>0)||!(E>0)) return;
+    n=Math.pow(zz*sg/E,2);
+    work='n = ( z \u00d7 \u03c3 \u00f7 E )\u00b2 = ( '+zz+' \u00d7 '+sg+' \u00f7 '+E+' )\u00b2 = '+n.toFixed(2)+
+         ', which rounds up to '+Math.ceil(n)+'.';
+    document.getElementById('lab2').textContent='Population standard deviation used';
+    document.getElementById('v2').textContent=sg.toFixed(2);
+  } else {
+    var p=+document.getElementById('p').value/100;
+    E=+document.getElementById('Ep').value/1000;
+    document.getElementById('pval').textContent=p.toFixed(2);
+    document.getElementById('Epval').textContent=(E*100).toFixed(1);
+    n=p*(1-p)*Math.pow(zz/E,2);
+    work='n = p q \u00d7 ( z \u00f7 E )\u00b2 = '+p.toFixed(2)+' \u00d7 '+(1-p).toFixed(2)+
+         ' \u00d7 ( '+zz+' \u00f7 '+E.toFixed(3)+' )\u00b2 = '+n.toFixed(2)+
+         ', which rounds up to '+Math.ceil(n)+'.';
+    document.getElementById('lab2').textContent='Value of p q used';
+    document.getElementById('v2').textContent=(p*(1-p)).toFixed(4);
+  }
+  document.getElementById('nAns').textContent=Math.ceil(n);
+  document.getElementById('work').textContent=work;
+  document.getElementById('z').textContent=zz.toFixed(3);
+  var actual;
+  if(mode==='mean'){
+    actual=(zz*(+document.getElementById('sg').value)/Math.sqrt(Math.ceil(n))).toFixed(4);
+  } else {
+    var pp=+document.getElementById('p').value/100;
+    actual=(100*zz*Math.sqrt(pp*(1-pp)/Math.ceil(n))).toFixed(3)+' points';
+  }
+  document.getElementById('v3').textContent=actual;
+  drawCurve(E);
+}
+
+document.getElementById('tMean').addEventListener('click',function(){
+  mode='mean';
+  this.className='on'; document.getElementById('tProp').className='';
+  document.getElementById('barMean').className='bar';
+  document.getElementById('barProp').className='bar hide';
+  render();
+});
+document.getElementById('tProp').addEventListener('click',function(){
+  mode='prop';
+  this.className='on'; document.getElementById('tMean').className='';
+  document.getElementById('barProp').className='bar';
+  document.getElementById('barMean').className='bar hide';
+  render();
+});
+['sg','E','p','Ep'].forEach(function(id){
+  var el=document.getElementById(id);
+  el.addEventListener('input',render);
+  el.addEventListener('change',render);
+});
+Array.prototype.forEach.call(document.querySelectorAll('.lvl'),function(el){
+  el.addEventListener('change',render);
+});
+window.addEventListener('resize',render);
+render();
+</script>
+</body>
+</html>

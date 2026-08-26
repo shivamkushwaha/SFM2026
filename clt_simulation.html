@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Central limit theorem simulation</title>
+<style>
+  :root{--ink:#111827;--body:#3F4650;--muted:#8A9099;--acc:#9B1C2E;
+        --tint:#F5F1F1;--grey:#F4F4F5;--line:#E3E3E6}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--body);
+       font-family:Calibri,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+  .wrap{max-width:1240px;margin:0 auto;padding:32px 28px 60px}
+  h1{font-size:30px;color:var(--ink);margin:0 0 6px;font-weight:700}
+  .sub{color:var(--muted);font-style:italic;margin:0 0 26px}
+  .bar{background:var(--grey);border-radius:10px;padding:16px 20px;display:flex;
+       flex-wrap:wrap;gap:22px;align-items:center;margin-bottom:24px}
+  .fld{display:flex;flex-direction:column;gap:4px}
+  .fld label{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;
+         color:var(--ink);font-family:inherit;font-size:15px}
+  input[type=range]{width:190px;accent-color:var(--acc)}
+  button{font-family:inherit;font-size:15px;padding:9px 16px;border-radius:7px;cursor:pointer;
+         border:1px solid var(--acc);background:var(--acc);color:#fff}
+  button.ghost{background:#fff;color:var(--acc)}
+  button:hover{opacity:.88}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .panel{border-radius:10px;padding:16px 18px 14px;background:var(--grey)}
+  .panel.key{background:var(--tint)}
+  .panel h2{font-size:18px;margin:0 0 2px;color:var(--ink);font-weight:700}
+  .panel.key h2{color:var(--acc)}
+  .panel p.note{font-size:13px;color:var(--muted);margin:0 0 10px}
+  canvas{width:100%;height:260px;display:block;background:#fff;border-radius:6px}
+  .row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px}
+  .stat{background:var(--grey);border-radius:10px;padding:14px 16px}
+  .stat .lab{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  .stat .val{font-size:23px;font-weight:700;color:var(--ink);margin-top:4px}
+  .stat.acc .val{color:var(--acc)}
+  .foot{margin-top:24px;background:var(--tint);border-radius:10px;padding:18px 22px;font-size:15px}
+  .foot b{color:var(--acc)}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .swatch{display:inline-block;width:22px;height:3px;vertical-align:middle;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Central limit theorem in action</h1>
+  <p class="sub">Choose a population shape, choose n, and watch the distribution of the sample mean become normal even when the population is not.</p>
+
+  <div class="bar">
+    <div class="fld">
+      <label>Population shape</label>
+      <select id="shape">
+        <option value="expo" selected>Exponential, strongly skewed</option>
+        <option value="uniform">Uniform</option>
+        <option value="ushape">U shaped</option>
+        <option value="bimodal">Bimodal</option>
+        <option value="normal">Normal</option>
+        <option value="pareto">Heavy tailed</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Sample size n = <span id="nval">5</span></label>
+      <input type="range" id="n" min="1" max="100" value="5">
+    </div>
+    <button id="r1">Draw 1</button>
+    <button id="r50" class="ghost">Draw 50</button>
+    <button id="r1000" class="ghost">Draw 1000</button>
+    <button id="reset" class="ghost">Reset</button>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>The population</h2>
+      <p class="note">Fixed. Changing n does nothing to this picture.</p>
+      <canvas id="cpop"></canvas>
+    </div>
+    <div class="panel key">
+      <h2>Sampling distribution of x&#772;</h2>
+      <p class="note">One value for every sample drawn, with the normal curve the theorem predicts drawn on top.</p>
+      <canvas id="cmean"></canvas>
+      <div class="legend">
+        <span class="swatch" style="background:#9B1C2E"></span>Simulated sample means
+        <span class="swatch" style="background:#111827;margin-left:16px"></span>Normal curve with centre &mu; and spread &sigma; divided by &radic;n
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="stat"><div class="lab">Population mean &mu;</div><div class="val" id="mu">.</div></div>
+    <div class="stat"><div class="lab">Population &sigma;</div><div class="val" id="sg">.</div></div>
+    <div class="stat acc"><div class="lab">Predicted &sigma; divided by &radic;n</div><div class="val" id="th">.</div></div>
+    <div class="stat acc"><div class="lab">Observed standard error</div><div class="val" id="se">.</div></div>
+  </div>
+  <div class="row">
+    <div class="stat"><div class="lab">Samples drawn</div><div class="val" id="k">0</div></div>
+    <div class="stat"><div class="lab">Mean of the sample means</div><div class="val" id="mm">.</div></div>
+    <div class="stat"><div class="lab">Skewness of the population</div><div class="val" id="sk1">.</div></div>
+    <div class="stat"><div class="lab">Skewness of the sample means</div><div class="val" id="sk2">.</div></div>
+  </div>
+
+  <div class="foot">
+    <p style="margin:0 0 8px"><b>How to run this in class.</b> Start with the exponential population at n = 1 and draw 1000. The right panel is simply the population again, because a sample of one is the observation itself. Now move n to 2, then 5, then 30, drawing 1000 each time.</p>
+    <p style="margin:0">Watch the two skewness figures. The population skewness never moves. The skewness of the sample means falls towards zero roughly as one divided by &radic;n, which is the theorem doing its work. The heavy tailed option shows why the rule of n at least 30 is a convention rather than a guarantee.</p>
+  </div>
+</div>
+
+<script>
+var POPN = 4000, BINS = 40;
+var pop = [], mu = 0, sg = 0, means = [], popSkew = 0;
+
+function randn(){
+  var u=0,v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function mean(a){var s=0,i;for(i=0;i<a.length;i++)s+=a[i];return s/a.length;}
+function sd(a,m){var s=0,i;for(i=0;i<a.length;i++)s+=(a[i]-m)*(a[i]-m);return Math.sqrt(s/a.length);}
+function skew(a){
+  if(a.length<3) return 0;
+  var m=mean(a), s=sd(a,m), t=0, i;
+  if(s===0) return 0;
+  for(i=0;i<a.length;i++) t+=Math.pow((a[i]-m)/s,3);
+  return t/a.length;
+}
+
+function buildPop(shape){
+  var a=[],i,x;
+  for(i=0;i<POPN;i++){
+    if(shape==='uniform')      x = Math.random()*10;
+    else if(shape==='normal')  x = 5 + 1.6*randn();
+    else if(shape==='bimodal') x = (Math.random()<0.5?2.5:7.5) + 0.8*randn();
+    else if(shape==='ushape')  { var u=Math.random(); x = 5 + 5*Math.sign(u-0.5)*Math.pow(Math.abs(2*u-1),0.45); }
+    else if(shape==='pareto')  x = Math.min(60, 1/Math.pow(Math.random(), 0.62));
+    else                       x = -2.2*Math.log(1-Math.random());
+    a.push(x);
+  }
+  pop=a; mu=mean(a); sg=sd(a,mu); popSkew=skew(a);
+}
+
+function setup(cv){
+  var dpr=window.devicePixelRatio||1, r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  var ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,r.width,r.height);
+  return {ctx:ctx,w:r.width,h:r.height};
+}
+
+function range(a){
+  var lo=Infinity,hi=-Infinity,i;
+  for(i=0;i<a.length;i++){ if(a[i]<lo)lo=a[i]; if(a[i]>hi)hi=a[i]; }
+  if(hi===lo){ hi=lo+1; }
+  return [lo,hi];
+}
+
+function histo(a,lo,hi){
+  var c=new Array(BINS),i,j,w=(hi-lo)/BINS;
+  for(i=0;i<BINS;i++)c[i]=0;
+  for(i=0;i<a.length;i++){
+    j=Math.floor((a[i]-lo)/w);
+    if(j<0)j=0; if(j>=BINS)j=BINS-1;
+    c[j]++;
+  }
+  return c;
+}
+
+function draw(cv,a,lo,hi,colour,normal){
+  var s=setup(cv),ctx=s.ctx,w=s.w,h=s.h;
+  var padB=26,padT=12,padL=8,padR=8,i;
+  if(!a.length) return;
+  var c=histo(a,lo,hi), mx=1, bw=(w-padL-padR)/BINS, binW=(hi-lo)/BINS;
+  for(i=0;i<BINS;i++) if(c[i]>mx) mx=c[i];
+  var peak = mx/(a.length*binW);
+  if(normal){
+    var nd = 1/(normal.s*Math.sqrt(2*Math.PI));
+    if(nd>peak) peak=nd;
+  }
+  ctx.fillStyle=colour;
+  for(i=0;i<BINS;i++){
+    if(!c[i]) continue;
+    var dens=c[i]/(a.length*binW);
+    var bh=(h-padB-padT)*(dens/peak);
+    ctx.fillRect(padL+i*bw+0.6,h-padB-bh,Math.max(1,bw-1.2),bh);
+  }
+  if(normal){
+    ctx.strokeStyle='#111827'; ctx.lineWidth=2; ctx.beginPath();
+    for(i=0;i<=240;i++){
+      var x=lo+(hi-lo)*i/240;
+      var d=Math.exp(-0.5*Math.pow((x-normal.m)/normal.s,2))/(normal.s*Math.sqrt(2*Math.PI));
+      var px=padL+(x-lo)/(hi-lo)*(w-padL-padR);
+      var py=h-padB-(h-padB-padT)*(d/peak);
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  ctx.fillText(lo.toFixed(1),padL,h-8);
+  ctx.fillText(((lo+hi)/2).toFixed(1),w/2-10,h-8);
+  ctx.fillText(hi.toFixed(1),w-padR-24,h-8);
+}
+
+function f(x,d){ return isFinite(x)? x.toFixed(d===undefined?3:d) : '.'; }
+
+function drawSamples(k){
+  var n=+document.getElementById('n').value,i,j,s;
+  for(i=0;i<k;i++){
+    s=0;
+    for(j=0;j<n;j++) s+=pop[Math.floor(Math.random()*POPN)];
+    means.push(s/n);
+  }
+}
+
+function render(){
+  var n=+document.getElementById('n').value;
+  var pr=range(pop);
+  draw(document.getElementById('cpop'),pop,pr[0],pr[1],'#B9BAC0',null);
+  var se=sg/Math.sqrt(n);
+  var lo=mu-4.2*se, hi=mu+4.2*se;
+  if(lo<pr[0]) lo=Math.min(pr[0],lo);
+  if(means.length){
+    var mr=range(means);
+    if(mr[0]<lo) lo=mr[0];
+    if(mr[1]>hi) hi=mr[1];
+    draw(document.getElementById('cmean'),means,lo,hi,'#9B1C2E',{m:mu,s:se});
+  } else {
+    setup(document.getElementById('cmean'));
+  }
+  document.getElementById('mu').textContent=f(mu,2);
+  document.getElementById('sg').textContent=f(sg,2);
+  document.getElementById('th').textContent=f(se,3);
+  document.getElementById('se').textContent=means.length>1?f(sd(means,mean(means)),3):'.';
+  document.getElementById('k').textContent=means.length;
+  document.getElementById('mm').textContent=means.length?f(mean(means),3):'.';
+  document.getElementById('sk1').textContent=f(popSkew,2);
+  document.getElementById('sk2').textContent=means.length>2?f(skew(means),2):'.';
+}
+
+function reset(){
+  means=[];
+  buildPop(document.getElementById('shape').value);
+  render();
+}
+document.getElementById('n').addEventListener('input',function(){
+  document.getElementById('nval').textContent=this.value;
+  means=[]; render();
+});
+document.getElementById('shape').addEventListener('change',reset);
+document.getElementById('reset').addEventListener('click',reset);
+document.getElementById('r1').addEventListener('click',function(){drawSamples(1);render();});
+document.getElementById('r50').addEventListener('click',function(){drawSamples(50);render();});
+document.getElementById('r1000').addEventListener('click',function(){drawSamples(1000);render();});
+window.addEventListener('resize',render);
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage of confidence intervals</title>
+<style>
+  :root{--ink:#111827;--body:#3F4650;--muted:#8A9099;--acc:#9B1C2E;
+        --tint:#F5F1F1;--grey:#F4F4F5;--line:#E3E3E6;--miss:#C0392B;--hit:#8A9099}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--body);
+       font-family:Calibri,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+  .wrap{max-width:1220px;margin:0 auto;padding:32px 28px 60px}
+  h1{font-size:30px;color:var(--ink);margin:0 0 6px;font-weight:700}
+  .sub{color:var(--muted);font-style:italic;margin:0 0 26px}
+  .bar{background:var(--grey);border-radius:10px;padding:16px 20px;display:flex;
+       flex-wrap:wrap;gap:24px;align-items:center;margin-bottom:22px}
+  .fld{display:flex;flex-direction:column;gap:4px}
+  .fld label{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;
+         color:var(--ink);font-family:inherit;font-size:15px}
+  input[type=range]{width:180px;accent-color:var(--acc)}
+  button{font-family:inherit;font-size:15px;padding:9px 16px;border-radius:7px;cursor:pointer;
+         border:1px solid var(--acc);background:var(--acc);color:#fff}
+  button.ghost{background:#fff;color:var(--acc)}
+  button:hover{opacity:.88}
+  .panel{border-radius:10px;padding:16px 18px 14px;background:var(--tint)}
+  .panel h2{font-size:18px;margin:0 0 2px;color:var(--acc);font-weight:700}
+  .panel p.note{font-size:13px;color:var(--muted);margin:0 0 10px}
+  canvas{width:100%;height:420px;display:block;background:#fff;border-radius:6px}
+  .legend{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .swatch{display:inline-block;width:22px;height:3px;vertical-align:middle;margin-right:6px}
+  .row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px}
+  .stat{background:var(--grey);border-radius:10px;padding:14px 16px}
+  .stat .lab{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  .stat .val{font-size:24px;font-weight:700;color:var(--ink);margin-top:4px}
+  .stat.acc .val{color:var(--acc)}
+  .foot{margin-top:24px;background:var(--grey);border-radius:10px;padding:18px 22px;font-size:15px}
+  .foot b{color:var(--acc)}
+  ul{margin:8px 0 0;padding-left:20px} li{margin-bottom:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>What a confidence level really claims</h1>
+  <p class="sub">Every horizontal line is one interval built from one sample. The vertical line is the true &mu;, which in a simulation we are allowed to know.</p>
+
+  <div class="bar">
+    <div class="fld">
+      <label>Confidence level</label>
+      <select id="lvl">
+        <option value="1.645">90 percent</option>
+        <option value="1.96" selected>95 percent</option>
+        <option value="2.33">98 percent</option>
+        <option value="2.575">99 percent</option>
+        <option value="1.0">68 percent, for contrast</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Sample size n = <span id="nval">40</span></label>
+      <input type="range" id="n" min="5" max="200" value="40">
+    </div>
+    <div class="fld">
+      <label>Population shape</label>
+      <select id="shape">
+        <option value="normal" selected>Normal</option>
+        <option value="skewed">Skewed to the right</option>
+        <option value="uniform">Uniform</option>
+      </select>
+    </div>
+    <button id="r1">Draw 1</button>
+    <button id="r20" class="ghost">Draw 20</button>
+    <button id="r1000" class="ghost">Draw 1000</button>
+    <button id="reset" class="ghost">Reset</button>
+  </div>
+
+  <div class="panel">
+    <h2>The last 40 intervals</h2>
+    <p class="note">Grey intervals caught &mu;. Red ones missed it. In practice you never know which kind you are holding, because &mu; is unknown.</p>
+    <canvas id="cv"></canvas>
+    <div class="legend">
+      <span class="swatch" style="background:#8A9099"></span>Interval contains &mu;
+      <span class="swatch" style="background:#C0392B;margin-left:16px"></span>Interval misses &mu;
+      <span class="swatch" style="background:#111827;margin-left:16px"></span>The true &mu;
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="stat"><div class="lab">Intervals built</div><div class="val" id="k">0</div></div>
+    <div class="stat"><div class="lab">Intervals that missed</div><div class="val" id="miss">0</div></div>
+    <div class="stat acc"><div class="lab">Observed coverage</div><div class="val" id="cov">.</div></div>
+    <div class="stat acc"><div class="lab">Nominal confidence level</div><div class="val" id="nom">95.0 percent</div></div>
+  </div>
+
+  <div class="foot">
+    <p style="margin:0 0 8px"><b>How to run this in class.</b></p>
+    <ul>
+      <li>Draw one interval at a time about ten times. Ask the class, each time, whether this particular interval contains &mu;. They can see the answer only because the simulation cheats and shows &mu;.</li>
+      <li>Then draw 1000. The observed coverage settles on the nominal level. That number, and not the single interval, is what the confidence level describes.</li>
+      <li>Switch to 68 percent for contrast. Roughly a third of the lines turn red, and the point lands hard.</li>
+      <li>Set the population to skewed and n to 5. Coverage falls below the nominal level, because the central limit theorem has not had enough observations to work with.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+var MU = 50, SIGMA = 10, POP = [], iv = [], nMiss = 0, nAll = 0;
+
+function randn(){
+  var u=0,v=0;
+  while(u===0)u=Math.random();
+  while(v===0)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function mean(a){var s=0,i;for(i=0;i<a.length;i++)s+=a[i];return s/a.length;}
+function sd(a,m){var s=0,i;for(i=0;i<a.length;i++)s+=(a[i]-m)*(a[i]-m);return Math.sqrt(s/a.length);}
+
+function buildPop(shape){
+  var a=[],i,x;
+  for(i=0;i<6000;i++){
+    if(shape==='uniform')     x = MU + (Math.random()-0.5)*Math.sqrt(12)*SIGMA;
+    else if(shape==='skewed') x = -SIGMA*Math.log(1-Math.random()) + (MU-SIGMA);
+    else                      x = MU + SIGMA*randn();
+    a.push(x);
+  }
+  POP=a;
+  MU=mean(a); SIGMA=sd(a,MU);
+}
+
+function z(){ return +document.getElementById('lvl').value; }
+function N(){ return +document.getElementById('n').value; }
+
+function draw(k){
+  var n=N(), zz=z(), i, j, s, xb, half=zz*SIGMA/Math.sqrt(n);
+  for(i=0;i<k;i++){
+    s=0;
+    for(j=0;j<n;j++) s+=POP[Math.floor(Math.random()*POP.length)];
+    xb=s/n;
+    var hit = (xb-half <= MU && MU <= xb+half);
+    iv.push({lo:xb-half, hi:xb+half, m:xb, hit:hit});
+    if(iv.length>40) iv.shift();
+    nAll++; if(!hit) nMiss++;
+  }
+}
+
+function setup(cv){
+  var dpr=window.devicePixelRatio||1, r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  var ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,r.width,r.height);
+  return {ctx:ctx,w:r.width,h:r.height};
+}
+
+function render(){
+  var lvlText = {'1.645':'90.0','1.96':'95.0','2.33':'98.0','2.575':'99.0','1':'68.3'}[String(z())];
+  document.getElementById('nom').textContent = lvlText + ' percent';
+  document.getElementById('nval').textContent = N();
+  document.getElementById('k').textContent = nAll;
+  document.getElementById('miss').textContent = nMiss;
+  document.getElementById('cov').textContent = nAll ? ((100*(nAll-nMiss)/nAll).toFixed(1)+' percent') : '.';
+
+  var s=setup(document.getElementById('cv')), ctx=s.ctx, w=s.w, h=s.h;
+  var padL=50, padR=20, padT=16, padB=28;
+  var half = z()*SIGMA/Math.sqrt(N());
+  var span = Math.max(half*3.2, SIGMA*1.2);
+  var lo = MU-span, hi = MU+span;
+  function px(v){ return padL + (v-lo)/(hi-lo)*(w-padL-padR); }
+
+  // mu line
+  ctx.strokeStyle='#111827'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(px(MU),padT); ctx.lineTo(px(MU),h-padB); ctx.stroke();
+  ctx.fillStyle='#111827'; ctx.font='12.5px Calibri, sans-serif';
+  ctx.fillText('\u03bc = '+MU.toFixed(1), px(MU)+7, h-padB-6);
+
+  var rows = 40, gap = (h-padT-padB-26)/rows;
+  for(var i=0;i<iv.length;i++){
+    var y = padT + 10 + (rows-iv.length+i)*gap;
+    var v = iv[i];
+    ctx.strokeStyle = v.hit ? '#8A9099' : '#C0392B';
+    ctx.lineWidth = v.hit ? 2 : 3;
+    ctx.beginPath(); ctx.moveTo(px(v.lo), y); ctx.lineTo(px(v.hi), y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px(v.lo), y-3.5); ctx.lineTo(px(v.lo), y+3.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px(v.hi), y-3.5); ctx.lineTo(px(v.hi), y+3.5); ctx.stroke();
+    ctx.fillStyle = v.hit ? '#6B7280' : '#C0392B';
+    ctx.beginPath(); ctx.arc(px(v.m), y, 2.6, 0, 2*Math.PI); ctx.fill();
+  }
+
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  ctx.fillText(lo.toFixed(1), padL, h-9);
+  ctx.fillText(hi.toFixed(1), w-padR-26, h-9);
+  ctx.fillText('Value of the population mean', w/2-72, h-9);
+}
+
+function reset(){
+  iv=[]; nMiss=0; nAll=0;
+  buildPop(document.getElementById('shape').value);
+  render();
+}
+document.getElementById('n').addEventListener('input',function(){ iv=[];nMiss=0;nAll=0; render(); });
+document.getElementById('lvl').addEventListener('change',function(){ iv=[];nMiss=0;nAll=0; render(); });
+document.getElementById('shape').addEventListener('change',reset);
+document.getElementById('reset').addEventListener('click',reset);
+document.getElementById('r1').addEventListener('click',function(){draw(1);render();});
+document.getElementById('r20').addEventListener('click',function(){draw(20);render();});
+document.getElementById('r1000').addEventListener('click',function(){draw(1000);render();});
+window.addEventListener('resize',render);
+reset();
+</script>
+</body>
+</html>

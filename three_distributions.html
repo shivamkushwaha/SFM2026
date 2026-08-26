@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three distributions</title>
+<style>
+  :root{
+    --ink:#111827; --body:#3F4650; --muted:#8A9099;
+    --acc:#9B1C2E; --tint:#F5F1F1; --grey:#F4F4F5; --line:#E3E3E6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--body);
+       font-family:Calibri,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+  .wrap{max-width:1240px;margin:0 auto;padding:32px 28px 60px}
+  h1{font-size:30px;color:var(--ink);margin:0 0 6px;font-weight:700}
+  .sub{color:var(--muted);font-style:italic;margin:0 0 26px}
+  .bar{background:var(--grey);border-radius:10px;padding:16px 20px;display:flex;
+       flex-wrap:wrap;gap:22px;align-items:center;margin-bottom:24px}
+  .fld{display:flex;flex-direction:column;gap:4px}
+  .fld label{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  select,input[type=range]{accent-color:var(--acc)}
+  select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;
+         color:var(--ink);font-family:inherit;font-size:15px}
+  input[type=range]{width:170px}
+  button{font-family:inherit;font-size:15px;padding:9px 16px;border-radius:7px;cursor:pointer;
+         border:1px solid var(--acc);background:var(--acc);color:#fff}
+  button.ghost{background:#fff;color:var(--acc)}
+  button:hover{opacity:.88}
+  .panels{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+  .panel{border-radius:10px;padding:16px 18px 12px;background:var(--grey)}
+  .panel.key{background:var(--tint)}
+  .panel h2{font-size:17px;margin:0 0 2px;color:var(--ink);font-weight:700}
+  .panel.key h2{color:var(--acc)}
+  .panel p.note{font-size:12.5px;color:var(--muted);margin:0 0 10px;min-height:32px}
+  canvas{width:100%;height:190px;display:block;background:#fff;border-radius:6px}
+  .stats{margin-top:10px;font-size:13px;color:var(--body)}
+  .stats div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)}
+  .stats div:last-child{border-bottom:none}
+  .stats b{color:var(--ink);font-weight:600}
+  .foot{margin-top:26px;background:var(--tint);border-radius:10px;padding:18px 22px;font-size:15px}
+  .foot b{color:var(--acc)}
+  .big{font-size:15px;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Three distributions, side by side</h1>
+  <p class="sub">Population distribution, sample distribution and sampling distribution of the sample mean. All three panels share the same horizontal scale.</p>
+
+  <div class="bar">
+    <div class="fld">
+      <label>Population shape</label>
+      <select id="shape">
+        <option value="uniform">Uniform</option>
+        <option value="skewed" selected>Skewed to the right</option>
+        <option value="normal">Normal</option>
+        <option value="bimodal">Bimodal</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Sample size n = <span id="nval">10</span></label>
+      <input type="range" id="n" min="2" max="60" value="10">
+    </div>
+    <button id="one">Draw one sample</button>
+    <button id="many" class="ghost">Draw 200 samples</button>
+    <button id="reset" class="ghost">Reset</button>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h2>Population distribution</h2>
+      <p class="note">One bar counts units of the population. This panel never changes when you change n.</p>
+      <canvas id="cpop"></canvas>
+      <div class="stats">
+        <div><span>Units</span><b id="Npop">2000</b></div>
+        <div><span>Mean &mu;</span><b id="mu">.</b></div>
+        <div><span>Standard deviation &sigma;</span><b id="sg">.</b></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Sample distribution</h2>
+      <p class="note">One bar counts units in the one sample just drawn. This is the only panel you could ever plot from real data.</p>
+      <canvas id="csam"></canvas>
+      <div class="stats">
+        <div><span>Units in this sample</span><b id="nn">.</b></div>
+        <div><span>Sample mean x&#772;</span><b id="xb">.</b></div>
+        <div><span>Sample standard deviation s</span><b id="ss">.</b></div>
+      </div>
+    </div>
+
+    <div class="panel key">
+      <h2>Sampling distribution of x&#772;</h2>
+      <p class="note">One bar counts whole samples, each reduced to its mean. Every sample you draw adds one value here.</p>
+      <canvas id="cmean"></canvas>
+      <div class="stats">
+        <div><span>Samples drawn so far</span><b id="k">0</b></div>
+        <div><span>Mean of the sample means</span><b id="mm">.</b></div>
+        <div><span>Observed standard error</span><b id="se">.</b></div>
+        <div><span>Theoretical &sigma; divided by &radic;n</span><b id="th">.</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <p class="big" style="margin:0 0 8px"><b>What to watch.</b> The left panel is fixed. The middle panel keeps roughly the shape of the left panel however large n becomes. Only the right panel narrows, and it narrows towards &mu; at the rate &sigma; divided by &radic;n.</p>
+    <p style="margin:0;color:var(--body)">Draw 200 samples at n = 2, then push n to 50 and reset. The observed standard error should track the theoretical value closely once a few hundred samples have accumulated.</p>
+  </div>
+</div>
+
+<script>
+var LO = 0, HI = 100, BINS = 34;
+var pop = [], mu = 0, sg = 0, means = [], lastSample = [];
+
+function randn(){
+  var u = 0, v = 0;
+  while(u === 0) u = Math.random();
+  while(v === 0) v = Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function clamp(x){ return Math.max(LO+0.5, Math.min(HI-0.5, x)); }
+
+function buildPop(shape){
+  var a = [], i, x;
+  for(i=0;i<2000;i++){
+    if(shape === 'uniform')      x = Math.random()*100;
+    else if(shape === 'normal')  x = 50 + 14*randn();
+    else if(shape === 'bimodal') x = (Math.random() < 0.5 ? 28 : 74) + 8*randn();
+    else                         x = 6 - 18*Math.log(1-Math.random());
+    a.push(clamp(x));
+  }
+  pop = a;
+  mu = mean(a);
+  sg = sd(a, mu);
+}
+function mean(a){ var s=0,i; for(i=0;i<a.length;i++) s+=a[i]; return s/a.length; }
+function sd(a,m){ var s=0,i; for(i=0;i<a.length;i++) s+=(a[i]-m)*(a[i]-m); return Math.sqrt(s/a.length); }
+function sdSample(a,m){ if(a.length<2) return 0; var s=0,i; for(i=0;i<a.length;i++) s+=(a[i]-m)*(a[i]-m); return Math.sqrt(s/(a.length-1)); }
+
+function counts(a){
+  var c = new Array(BINS), i, j, w = (HI-LO)/BINS;
+  for(i=0;i<BINS;i++) c[i]=0;
+  for(i=0;i<a.length;i++){
+    j = Math.floor((a[i]-LO)/w);
+    if(j<0) j=0; if(j>=BINS) j=BINS-1;
+    c[j]++;
+  }
+  return c;
+}
+
+function setup(cv){
+  var dpr = window.devicePixelRatio || 1;
+  var r = cv.getBoundingClientRect();
+  cv.width = r.width*dpr; cv.height = r.height*dpr;
+  var ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,r.width,r.height);
+  return {ctx:ctx, w:r.width, h:r.height};
+}
+
+function drawHist(cv, data, colour, markMu){
+  var s = setup(cv), ctx = s.ctx, w = s.w, h = s.h;
+  var padB = 22, padT = 10, padL = 6, padR = 6;
+  var c = counts(data), i, mx = 1;
+  for(i=0;i<BINS;i++) if(c[i]>mx) mx=c[i];
+  var bw = (w-padL-padR)/BINS;
+  ctx.fillStyle = colour;
+  for(i=0;i<BINS;i++){
+    if(!c[i]) continue;
+    var bh = (h-padB-padT)*(c[i]/mx);
+    ctx.fillRect(padL+i*bw+0.6, h-padB-bh, Math.max(1,bw-1.2), bh);
+  }
+  ctx.strokeStyle = '#E3E3E6'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, h-padB+0.5); ctx.lineTo(w-padR, h-padB+0.5); ctx.stroke();
+  if(markMu){
+    var mx2 = padL + (mu-LO)/(HI-LO)*(w-padL-padR);
+    ctx.strokeStyle = '#111827'; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(mx2, padT); ctx.lineTo(mx2, h-padB); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#111827'; ctx.font = '11px Calibri, sans-serif';
+    ctx.fillText('\u03bc', mx2+3, padT+10);
+  }
+  ctx.fillStyle = '#8A9099'; ctx.font = '11px Calibri, sans-serif';
+  ctx.fillText(String(LO), padL, h-6);
+  ctx.fillText(String(HI), w-padR-18, h-6);
+}
+
+function drawDots(cv, data){
+  var s = setup(cv), ctx = s.ctx, w = s.w, h = s.h;
+  var padB = 22, padL = 6, padR = 6, i;
+  var c = new Array(BINS), j, stack = new Array(BINS), bw = (w-padL-padR)/BINS;
+  for(i=0;i<BINS;i++){ c[i]=0; stack[i]=0; }
+  var cc = counts(data), mx = 1;
+  for(i=0;i<BINS;i++) if(cc[i]>mx) mx=cc[i];
+  var r = Math.min(bw*0.36, (h-padB-8)/(2*mx));
+  if(r < 1.4) r = 1.4;
+  for(i=0;i<data.length;i++){
+    j = Math.floor((data[i]-LO)/((HI-LO)/BINS));
+    if(j<0) j=0; if(j>=BINS) j=BINS-1;
+    var cx = padL + (j+0.5)*bw;
+    var cy = h-padB-r-stack[j]*(2*r+1.2);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2*Math.PI);
+    ctx.fillStyle = '#6B7280'; ctx.fill();
+    stack[j]++;
+  }
+  ctx.strokeStyle = '#E3E3E6'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, h-padB+0.5); ctx.lineTo(w-padR, h-padB+0.5); ctx.stroke();
+  if(data.length){
+    var m = mean(data);
+    var mxp = padL + (m-LO)/(HI-LO)*(w-padL-padR);
+    ctx.strokeStyle = '#9B1C2E'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(mxp, 8); ctx.lineTo(mxp, h-padB); ctx.stroke();
+    ctx.fillStyle = '#9B1C2E'; ctx.font = '11px Calibri, sans-serif';
+    ctx.fillText('x\u0304', mxp+3, 16);
+  }
+  ctx.fillStyle = '#8A9099'; ctx.font = '11px Calibri, sans-serif';
+  ctx.fillText(String(LO), padL, h-6);
+  ctx.fillText(String(HI), w-padR-18, h-6);
+}
+
+function f(x, d){ return (isFinite(x) ? x.toFixed(d === undefined ? 2 : d) : '.'); }
+
+function drawSample(){
+  var n = +document.getElementById('n').value, i, a = [];
+  for(i=0;i<n;i++) a.push(pop[Math.floor(Math.random()*pop.length)]);
+  lastSample = a;
+  means.push(mean(a));
+}
+
+function render(){
+  var n = +document.getElementById('n').value;
+  drawHist(document.getElementById('cpop'), pop, '#B9BAC0', true);
+  if(lastSample.length) drawDots(document.getElementById('csam'), lastSample);
+  else setup(document.getElementById('csam'));
+  if(means.length) drawHist(document.getElementById('cmean'), means, '#9B1C2E', true);
+  else setup(document.getElementById('cmean'));
+
+  document.getElementById('mu').textContent = f(mu);
+  document.getElementById('sg').textContent = f(sg);
+  document.getElementById('nn').textContent = lastSample.length || '.';
+  document.getElementById('xb').textContent = lastSample.length ? f(mean(lastSample)) : '.';
+  document.getElementById('ss').textContent = lastSample.length ? f(sdSample(lastSample, mean(lastSample))) : '.';
+  document.getElementById('k').textContent = means.length;
+  document.getElementById('mm').textContent = means.length ? f(mean(means)) : '.';
+  document.getElementById('se').textContent = means.length > 1 ? f(sd(means, mean(means)), 3) : '.';
+  document.getElementById('th').textContent = f(sg/Math.sqrt(n), 3);
+}
+
+function reset(){
+  means = []; lastSample = [];
+  buildPop(document.getElementById('shape').value);
+  render();
+}
+
+document.getElementById('n').addEventListener('input', function(){
+  document.getElementById('nval').textContent = this.value;
+  means = []; lastSample = [];
+  render();
+});
+document.getElementById('shape').addEventListener('change', reset);
+document.getElementById('reset').addEventListener('click', reset);
+document.getElementById('one').addEventListener('click', function(){ drawSample(); render(); });
+document.getElementById('many').addEventListener('click', function(){
+  var i; for(i=0;i<200;i++) drawSample();
+  render();
+});
+window.addEventListener('resize', render);
+reset();
+</script>
+</body>
+</html>

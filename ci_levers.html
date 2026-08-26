@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The three levers on interval width</title>
+<style>
+  :root{--ink:#111827;--body:#3F4650;--muted:#8A9099;--acc:#9B1C2E;
+        --tint:#F5F1F1;--grey:#F4F4F5;--line:#E3E3E6}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--body);
+       font-family:Calibri,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 28px 60px}
+  h1{font-size:30px;color:var(--ink);margin:0 0 6px;font-weight:700}
+  .sub{color:var(--muted);font-style:italic;margin:0 0 26px}
+  .bar{background:var(--grey);border-radius:10px;padding:18px 20px;display:flex;
+       flex-wrap:wrap;gap:28px;align-items:center;margin-bottom:22px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld label{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;
+         color:var(--ink);font-family:inherit;font-size:15px}
+  input[type=range]{width:200px;accent-color:var(--acc)}
+  .panel{border-radius:10px;padding:16px 20px 14px;background:var(--tint);margin-bottom:20px}
+  .panel h2{font-size:18px;margin:0 0 2px;color:var(--acc);font-weight:700}
+  .panel p.note{font-size:13px;color:var(--muted);margin:0 0 10px}
+  #cvIv{width:100%;height:180px;display:block;background:#fff;border-radius:6px}
+  #cvW{width:100%;height:280px;display:block;background:#fff;border-radius:6px}
+  .panel.plain{background:var(--grey)}
+  .panel.plain h2{color:var(--ink)}
+  .row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+  .stat{background:var(--grey);border-radius:10px;padding:14px 16px}
+  .stat .lab{font-size:12.5px;color:var(--muted);letter-spacing:.3px}
+  .stat .val{font-size:23px;font-weight:700;color:var(--ink);margin-top:4px}
+  .stat.acc{background:var(--tint)} .stat.acc .val{color:var(--acc)}
+  .foot{background:var(--grey);border-radius:10px;padding:18px 22px;font-size:15px}
+  .foot b{color:var(--acc)}
+  ul{margin:8px 0 0;padding-left:20px} li{margin-bottom:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The three levers on interval width</h1>
+  <p class="sub">Width = 2 &times; z &times; &sigma; divided by &radic;n. Move each lever and watch which of the three actually buys precision.</p>
+
+  <div class="bar">
+    <div class="fld">
+      <label>Confidence level</label>
+      <select id="lvl">
+        <option value="1.645">90 percent</option>
+        <option value="1.96" selected>95 percent</option>
+        <option value="2.33">98 percent</option>
+        <option value="2.575">99 percent</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Population standard deviation &sigma; = <span id="sval">6.0</span></label>
+      <input type="range" id="sg" min="10" max="200" value="60">
+    </div>
+    <div class="fld">
+      <label>Sample size n = <span id="nval">100</span></label>
+      <input type="range" id="n" min="4" max="1000" value="100">
+    </div>
+    <div class="fld">
+      <label>Sample mean x&#772; = <span id="mval">21.0</span></label>
+      <input type="range" id="xb" min="150" max="270" value="210">
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>The resulting interval</h2>
+    <p class="note">The grey band is the 95 percent reference interval at the settings you started with, kept for comparison.</p>
+    <canvas id="cvIv"></canvas>
+  </div>
+
+  <div class="row">
+    <div class="stat"><div class="lab">Critical value z</div><div class="val" id="z">1.96</div></div>
+    <div class="stat"><div class="lab">Standard error</div><div class="val" id="se">.</div></div>
+    <div class="stat acc"><div class="lab">Margin of error</div><div class="val" id="me">.</div></div>
+    <div class="stat acc"><div class="lab">Interval width</div><div class="val" id="wd">.</div></div>
+  </div>
+
+  <div class="panel plain">
+    <h2>Width against sample size</h2>
+    <p class="note">At the current &sigma; and confidence level. The marker shows where your chosen n sits on the curve.</p>
+    <canvas id="cvW"></canvas>
+  </div>
+
+  <div class="foot">
+    <p style="margin:0 0 8px"><b>Three demonstrations.</b></p>
+    <ul>
+      <li>Hold n and &sigma; fixed and step the confidence level from 90 to 99 percent. The interval widens by about 57 percent. The data did not change at all, only the certainty demanded.</li>
+      <li>Hold everything else and quadruple n, from 25 to 100. The width halves exactly. Then quadruple again to 400 and watch how much less the second doubling of effort achieves.</li>
+      <li>Push &sigma; up. The interval widens and nothing in the study design can prevent it, which is why a variable population needs a larger sample for the same precision.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+var REF = null;
+
+function z(){ return +document.getElementById('lvl').value; }
+function S(){ return +document.getElementById('sg').value/10; }
+function N(){ return +document.getElementById('n').value; }
+function XB(){ return +document.getElementById('xb').value/10; }
+
+function setup(cv){
+  var dpr=window.devicePixelRatio||1, r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  var ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,r.width,r.height);
+  return {ctx:ctx,w:r.width,h:r.height};
+}
+
+function drawInterval(){
+  var s=setup(document.getElementById('cvIv')), ctx=s.ctx, w=s.w, h=s.h;
+  var padL=30,padR=30,padB=30;
+  var half=z()*S()/Math.sqrt(N()), m=XB();
+  var span=Math.max(half*1.45, REF.half*1.45, 1.2);
+  var lo=m-span, hi=m+span;
+  function px(v){ return padL+(v-lo)/(hi-lo)*(w-padL-padR); }
+
+  // reference band
+  ctx.fillStyle='#EDEDEF';
+  ctx.fillRect(px(m-REF.half), h-padB-84, px(m+REF.half)-px(m-REF.half), 26);
+  ctx.fillStyle='#8A9099'; ctx.font='11.5px Calibri, sans-serif';
+  ctx.fillText('reference: width '+(2*REF.half).toFixed(2), px(m-REF.half), h-padB-90);
+
+  // current interval
+  var y=h-padB-34;
+  ctx.strokeStyle='#9B1C2E'; ctx.lineWidth=5; ctx.lineCap='butt';
+  ctx.beginPath(); ctx.moveTo(px(m-half),y); ctx.lineTo(px(m+half),y); ctx.stroke();
+  ctx.lineWidth=2;
+  [m-half,m+half].forEach(function(v){
+    ctx.beginPath(); ctx.moveTo(px(v),y-13); ctx.lineTo(px(v),y+13); ctx.stroke();
+  });
+  ctx.fillStyle='#111827';
+  ctx.beginPath(); ctx.arc(px(m),y,5,0,2*Math.PI); ctx.fill();
+  ctx.font='12.5px Calibri, sans-serif';
+  ctx.fillText((m-half).toFixed(2), px(m-half)-18, y-20);
+  ctx.fillText((m+half).toFixed(2), px(m+half)-18, y-20);
+  ctx.fillStyle='#9B1C2E';
+  ctx.fillText('x\u0304 = '+m.toFixed(2), px(m)-20, y+30);
+
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  ctx.fillText(lo.toFixed(1),padL,h-10);
+  ctx.fillText(hi.toFixed(1),w-padR-24,h-10);
+}
+
+function drawWidth(){
+  var s=setup(document.getElementById('cvW')), ctx=s.ctx, w=s.w, h=s.h;
+  var padL=52,padR=20,padT=14,padB=34;
+  var zz=z(), sg=S(), nMax=1000, nMin=4;
+  var wMax=2*zz*sg/Math.sqrt(nMin);
+  function px(n){ return padL+(n-nMin)/(nMax-nMin)*(w-padL-padR); }
+  function py(v){ return h-padB-(v/wMax)*(h-padT-padB); }
+
+  // gridlines
+  ctx.strokeStyle='#EFEFF1'; ctx.lineWidth=1;
+  for(var g=0;g<=4;g++){
+    var yy=padT+(h-padT-padB)*g/4;
+    ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(w-padR,yy); ctx.stroke();
+    ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+    ctx.fillText((wMax*(1-g/4)).toFixed(1), 12, yy+4);
+  }
+  ctx.strokeStyle='#9B1C2E'; ctx.lineWidth=3; ctx.beginPath();
+  for(var i=0;i<=300;i++){
+    var n=nMin+(nMax-nMin)*i/300;
+    var v=2*zz*sg/Math.sqrt(n);
+    if(i===0) ctx.moveTo(px(n),py(v)); else ctx.lineTo(px(n),py(v));
+  }
+  ctx.stroke();
+
+  var n0=N(), v0=2*zz*sg/Math.sqrt(n0);
+  ctx.strokeStyle='#8A9099'; ctx.setLineDash([4,3]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(px(n0),py(v0)); ctx.lineTo(px(n0),h-padB); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(padL,py(v0)); ctx.lineTo(px(n0),py(v0)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#111827';
+  ctx.beginPath(); ctx.arc(px(n0),py(v0),5,0,2*Math.PI); ctx.fill();
+  ctx.font='12.5px Calibri, sans-serif';
+  ctx.fillText('n = '+n0+', width '+v0.toFixed(2), Math.min(px(n0)+8, w-160), py(v0)-10);
+
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  [4,250,500,750,1000].forEach(function(t){ ctx.fillText(String(t), px(t)-10, h-14); });
+  ctx.fillText('Sample size n', w/2-32, h-2);
+}
+
+function render(){
+  document.getElementById('sval').textContent=S().toFixed(1);
+  document.getElementById('nval').textContent=N();
+  document.getElementById('mval').textContent=XB().toFixed(1);
+  var half=z()*S()/Math.sqrt(N());
+  if(!REF) REF={half:half};
+  document.getElementById('z').textContent=z().toFixed(3);
+  document.getElementById('se').textContent=(S()/Math.sqrt(N())).toFixed(4);
+  document.getElementById('me').textContent=half.toFixed(4);
+  document.getElementById('wd').textContent=(2*half).toFixed(4);
+  drawInterval();
+  drawWidth();
+}
+['lvl','sg','n','xb'].forEach(function(id){
+  document.getElementById(id).addEventListener('input',render);
+  document.getElementById(id).addEventListener('change',render);
+});
+window.addEventListener('resize',render);
+render();
+</script>
+</body>
+</html>
