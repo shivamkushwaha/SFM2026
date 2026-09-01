@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two sample tests: paired and independent</title>
+<style>
+  :root{--ink:#111827;--body:#3F4650;--muted:#8A9099;--acc:#9B1C2E;
+        --tint:#F5F1F1;--grey:#F4F4F5;--line:#E3E3E6;--rej:#C0392B;--keep:#1F6B4A;
+        --g1:#9B1C2E;--g2:#1D5F73}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:#fff;color:var(--body);overflow:hidden;
+       font-family:Calibri,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.35}
+
+  .app{height:100vh;display:flex;flex-direction:column;gap:7px;padding:9px 14px 10px}
+
+  /* ---- header ---- */
+  .top{display:flex;align-items:center;gap:16px;flex:0 0 auto}
+  .top h1{font-size:20px;color:var(--ink);margin:0;font-weight:700;white-space:nowrap}
+  .top .sub{font-size:12px;color:var(--muted);font-style:italic;white-space:nowrap;
+            overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .tabs{display:flex;gap:6px}
+  .tabs button{font-family:inherit;font-size:13px;padding:6px 12px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--ink);white-space:nowrap}
+  .tabs button.on{border-color:var(--acc);background:var(--acc);color:#fff}
+  button.mini{font-family:inherit;font-size:13px;padding:6px 12px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--acc);background:#fff;color:var(--acc);white-space:nowrap}
+
+  .hyp{background:var(--tint);border-radius:8px;padding:7px 14px;font-size:14.5px;color:var(--ink);
+       flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hyp b{color:var(--acc)} .hyp span.q{color:var(--muted);font-size:13px}
+
+  /* ---- controls ---- */
+  .ctrls{display:flex;gap:8px;flex:0 0 auto;align-items:stretch}
+  .bar{background:var(--grey);border-radius:8px;padding:8px 12px;display:flex;
+       flex-wrap:wrap;gap:8px 16px;align-items:center}
+  .bar.grow{flex:1;min-width:0}
+  .fld{display:flex;flex-direction:column;gap:2px}
+  .fld label{font-size:11px;color:var(--muted);letter-spacing:.2px;white-space:nowrap}
+  .fld label b{color:var(--ink);font-weight:600}
+  input[type=range]{width:128px;accent-color:var(--acc);margin:0}
+  select{padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:#fff;
+         color:var(--ink);font-family:inherit;font-size:13px}
+
+  /* ---- numbers strip ---- */
+  .statsrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 2.1fr;gap:8px;flex:0 0 auto}
+  .stat{background:var(--grey);border-radius:8px;padding:6px 11px;min-width:0}
+  .stat .lab{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .val{font-size:19px;font-weight:700;color:var(--ink);line-height:1.15}
+  .stat.acc{background:var(--tint)} .stat.acc .val{color:var(--acc)}
+  .verdict{border-radius:8px;padding:6px 12px;font-size:14px;font-weight:600;min-width:0;overflow:hidden}
+  .verdict.rej{background:#FBEAEA;color:var(--rej);border:1px solid #E9C6C9}
+  .verdict.keep{background:#EAF3EE;color:var(--keep);border:1px solid #C9E0D3}
+  .verdict span{font-weight:400;color:var(--body);display:block;font-size:11.5px;line-height:1.3;margin-top:1px}
+
+  /* ---- the three charts ---- */
+  .main{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+  .panel{border-radius:9px;padding:8px 11px 7px;background:var(--tint);display:flex;
+         flex-direction:column;min-height:0;min-width:0}
+  .panel.plain{background:var(--grey)}
+  .panhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex:0 0 auto}
+  .panel h2{font-size:14.5px;margin:0;color:var(--acc);font-weight:700;line-height:1.2}
+  .panel.plain h2{color:var(--ink)}
+  .panel p.note{font-size:11px;color:var(--muted);margin:2px 0 5px;line-height:1.25;
+                display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .cvwrap{position:relative;flex:1 1 auto;min-height:0;background:#fff;border-radius:5px}
+  canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+  .legend{font-size:10.5px;color:var(--muted);margin-top:4px;flex:0 0 auto;line-height:1.3}
+  .swatch{display:inline-block;width:17px;height:9px;vertical-align:middle;margin-right:4px;border-radius:2px}
+
+  /* ---- bottom strip ---- */
+  .bottom{flex:0 0 auto;height:176px;display:grid;grid-template-columns:1.3fr 1fr;gap:9px}
+  .bottom .panel{overflow:hidden}
+  .scroll{overflow:auto;flex:1 1 auto;min-height:0}
+  table.cmp{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:3px}
+  table.cmp th,table.cmp td{border:1px solid var(--line);padding:4px 8px;text-align:left;white-space:nowrap}
+  table.cmp th{background:#fff;color:var(--ink);font-weight:600}
+  table.cmp td.hi{color:var(--acc);font-weight:600}
+  #cmpBody p{margin:6px 0 0;font-size:12px;line-height:1.35}
+  .work .ln{padding:3px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;font-size:12.5px}
+  .work .ln:last-child{border-bottom:none}
+  .work .k{min-width:175px;color:var(--ink);font-weight:600;flex:0 0 auto}
+  .work .v{color:var(--body)}
+
+  /* ---- notes overlay ---- */
+  .overlay{position:fixed;inset:0;background:rgba(17,24,39,0.42);display:flex;
+           align-items:center;justify-content:center;z-index:40}
+  .sheet{background:#fff;border-radius:12px;padding:22px 26px;max-width:820px;width:88%;
+         max-height:78vh;overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+  .sheet h3{margin:0 0 10px;font-size:19px;color:var(--acc)}
+  .sheet ul{margin:8px 0 0;padding-left:20px} .sheet li{margin-bottom:7px;font-size:14.5px}
+  .sheet .close{float:right;margin:-6px -6px 0 0}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top">
+    <h1>Two sample tests</h1>
+    <div class="tabs">
+      <button id="tPool" class="on">Independent, equal variances</button>
+      <button id="tWel">Independent, unequal variances</button>
+      <button id="tPair">Dependent, matched pairs</button>
+      <button id="tProp">Two proportions</button>
+      <button id="tF">F test for two variances</button>
+    </div>
+    <span class="sub">Move any slider and every panel updates. Nothing here is precomputed.</span>
+    <button class="mini" id="notesBtn">Teaching notes</button>
+    <button class="mini" id="reset">Reset</button>
+  </div>
+
+  <div class="hyp" id="hyp"></div>
+
+  <div class="ctrls">
+    <div class="bar grow" id="barInd">
+      <div class="fld"><label>Mean <b>x&#772;<sub>1</sub></b> = <span id="m1v">52.0</span></label>
+        <input type="range" id="m1" min="300" max="700" value="520"></div>
+      <div class="fld"><label>Spread <b>s<sub>1</sub></b> = <span id="sd1v">8.0</span></label>
+        <input type="range" id="sd1" min="5" max="300" value="80"></div>
+      <div class="fld"><label>Size <b>n<sub>1</sub></b> = <span id="n1v">30</span></label>
+        <input type="range" id="n1" min="3" max="250" value="30"></div>
+      <div class="fld"><label>Mean <b>x&#772;<sub>2</sub></b> = <span id="m2v">48.0</span></label>
+        <input type="range" id="m2" min="300" max="700" value="480"></div>
+      <div class="fld"><label>Spread <b>s<sub>2</sub></b> = <span id="sd2v">9.0</span></label>
+        <input type="range" id="sd2" min="5" max="300" value="90"></div>
+      <div class="fld"><label>Size <b>n<sub>2</sub></b> = <span id="n2v">35</span></label>
+        <input type="range" id="n2" min="3" max="250" value="35"></div>
+    </div>
+
+    <div class="bar grow hide" id="barPair">
+      <div class="fld"><label>Mean before <b>x&#772;<sub>1</sub></b> = <span id="pm1v">52.0</span></label>
+        <input type="range" id="pm1" min="300" max="700" value="520"></div>
+      <div class="fld"><label>Mean after <b>x&#772;<sub>2</sub></b> = <span id="pm2v">48.0</span></label>
+        <input type="range" id="pm2" min="300" max="700" value="480"></div>
+      <div class="fld"><label>Spread <b>s<sub>1</sub></b> = <span id="ps1v">8.0</span></label>
+        <input type="range" id="ps1" min="5" max="300" value="80"></div>
+      <div class="fld"><label>Spread <b>s<sub>2</sub></b> = <span id="ps2v">9.0</span></label>
+        <input type="range" id="ps2" min="5" max="300" value="90"></div>
+      <div class="fld"><label>Pairs <b>n</b> = <span id="pnv">25</span></label>
+        <input type="range" id="pn" min="3" max="200" value="25"></div>
+      <div class="fld"><label>Correlation <b>r</b> = <span id="prv">0.60</span></label>
+        <input type="range" id="pr" min="-90" max="95" value="60"></div>
+    </div>
+
+    <div class="bar grow hide" id="barProp">
+      <div class="fld"><label>Proportion <b>p&#770;<sub>1</sub></b> = <span id="q1v">0.62</span></label>
+        <input type="range" id="q1" min="1" max="99" value="62"></div>
+      <div class="fld"><label>Size <b>n<sub>1</sub></b> = <span id="qn1v">200</span></label>
+        <input type="range" id="qn1" min="10" max="1200" value="200"></div>
+      <div class="fld"><label>Proportion <b>p&#770;<sub>2</sub></b> = <span id="q2v">0.53</span></label>
+        <input type="range" id="q2" min="1" max="99" value="53"></div>
+      <div class="fld"><label>Size <b>n<sub>2</sub></b> = <span id="qn2v">220</span></label>
+        <input type="range" id="qn2" min="10" max="1200" value="220"></div>
+    </div>
+
+    <div class="bar">
+      <div class="fld" id="d0box"><label>Difference <b>D<sub>0</sub></b> = <span id="d0v">0.0</span></label>
+        <input type="range" id="d0" min="-100" max="100" value="0"></div>
+      <div class="fld"><label>Alternative</label>
+        <select id="tail">
+          <option value="two" selected>Two tailed, not equal</option>
+          <option value="right">Right tailed, one is larger</option>
+          <option value="left">Left tailed, one is smaller</option>
+        </select></div>
+      <div class="fld"><label>Level <b>&alpha;</b></label>
+        <select id="alpha">
+          <option value="0.10">0.10</option>
+          <option value="0.05" selected>0.05</option>
+          <option value="0.01">0.01</option>
+        </select></div>
+    </div>
+  </div>
+
+  <div class="statsrow">
+    <div class="stat"><div class="lab" id="labStat">Test statistic t</div><div class="val" id="vStat">.</div></div>
+    <div class="stat"><div class="lab" id="labSe">Standard error of the difference</div><div class="val" id="vSe">.</div></div>
+    <div class="stat acc"><div class="lab">p value</div><div class="val" id="vP">.</div></div>
+    <div class="stat acc"><div class="lab" id="labCrit">Critical value</div><div class="val" id="vCrit">.</div></div>
+    <div class="verdict keep" id="verdict"></div>
+  </div>
+
+  <div class="main">
+    <div class="panel plain" id="sampPanel">
+      <div class="panhead">
+        <div style="min-width:0">
+          <h2 id="sampTitle">The two distributions side by side</h2>
+          <p class="note" id="sampNote"></p>
+        </div>
+        <select id="sampMode">
+          <option value="values" selected>Individual values</option>
+          <option value="means">Sampling distribution</option>
+        </select>
+      </div>
+      <div class="cvwrap"><canvas id="cvSamp"></canvas></div>
+      <div class="legend" id="sampLegend"></div>
+    </div>
+
+    <div class="panel">
+      <h2 id="mainTitle">The sampling distribution under H<sub>0</sub></h2>
+      <p class="note" id="mainNote"></p>
+      <div class="cvwrap"><canvas id="cvMain"></canvas></div>
+      <div class="legend">
+        <span class="swatch" style="background:#9B1C2E;opacity:.35"></span>The p value
+        <span class="swatch" style="background:#EDEDF1;margin-left:12px"></span>Rejection region at &alpha;
+      </div>
+    </div>
+
+    <div class="panel plain">
+      <h2>How the p value responds</h2>
+      <p class="note" id="respNote"></p>
+      <div class="cvwrap"><canvas id="cvResp"></canvas></div>
+      <div class="legend">The dashed line is &alpha;. The marker is your current setting.</div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="panel plain" id="cmpPanel">
+      <h2 id="cmpTitle">The same data under the other assumption</h2>
+      <p class="note" id="cmpNote"></p>
+      <div class="scroll" id="cmpBody"></div>
+    </div>
+    <div class="panel plain">
+      <h2>The working</h2>
+      <div class="scroll work" id="work"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="overlay hide" id="notes">
+  <div class="sheet">
+    <button class="mini close" id="notesClose">Close</button>
+    <div id="foot"></div>
+  </div>
+</div>
+
+<script>
+/* ================= distribution mathematics ================= */
+function logGamma(x){
+  var g=[676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,
+         12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(x<0.5) return Math.log(Math.PI/Math.sin(Math.PI*x))-logGamma(1-x);
+  x-=1;
+  var a=0.99999999999980993,t=x+7.5,i;
+  for(i=0;i<8;i++) a+=g[i]/(x+i+1);
+  return 0.5*Math.log(2*Math.PI)+(x+0.5)*Math.log(t)-t+Math.log(a);
+}
+function gammaP(a,x){
+  if(x<=0) return 0;
+  if(x<a+1){
+    var ap=a,sum=1/a,del=sum,i;
+    for(i=0;i<600;i++){ ap+=1; del*=x/ap; sum+=del;
+      if(Math.abs(del)<Math.abs(sum)*1e-14) break; }
+    return sum*Math.exp(-x+a*Math.log(x)-logGamma(a));
+  }
+  var b=x+1-a,c=1e300,d=1/b,h=d,an,j;
+  for(j=1;j<600;j++){
+    an=-j*(j-a); b+=2; d=an*d+b; if(Math.abs(d)<1e-300)d=1e-300;
+    c=b+an/c; if(Math.abs(c)<1e-300)c=1e-300;
+    d=1/d; var de=d*c; h*=de;
+    if(Math.abs(de-1)<1e-14) break;
+  }
+  return 1-Math.exp(-x+a*Math.log(x)-logGamma(a))*h;
+}
+function betacf(a,b,x){
+  var qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap,m,m2,aa,del;
+  if(Math.abs(d)<1e-300)d=1e-300;
+  d=1/d; var h=d;
+  for(m=1;m<=400;m++){
+    m2=2*m;
+    aa=m*(b-m)*x/((qam+m2)*(a+m2));
+    d=1+aa*d; if(Math.abs(d)<1e-300)d=1e-300;
+    c=1+aa/c; if(Math.abs(c)<1e-300)c=1e-300;
+    d=1/d; h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+    d=1+aa*d; if(Math.abs(d)<1e-300)d=1e-300;
+    c=1+aa/c; if(Math.abs(c)<1e-300)c=1e-300;
+    d=1/d; del=d*c; h*=del;
+    if(Math.abs(del-1)<1e-14) break;
+  }
+  return h;
+}
+function betaI(x,a,b){
+  if(x<=0) return 0;
+  if(x>=1) return 1;
+  var bt=Math.exp(logGamma(a+b)-logGamma(a)-logGamma(b)+a*Math.log(x)+b*Math.log(1-x));
+  if(x<(a+1)/(a+b+2)) return bt*betacf(a,b,x)/a;
+  return 1-bt*betacf(b,a,1-x)/b;
+}
+function normCdf(z){ return z>=0?0.5*(1+gammaP(0.5,z*z/2)):0.5*(1-gammaP(0.5,z*z/2)); }
+function normPdf(z){ return Math.exp(-0.5*z*z)/Math.sqrt(2*Math.PI); }
+function tCdf(t,df){ var x=df/(df+t*t),p=0.5*betaI(x,df/2,0.5); return t>=0?1-p:p; }
+function tPdf(t,df){
+  return Math.exp(logGamma((df+1)/2)-logGamma(df/2)-0.5*Math.log(df*Math.PI)
+        -((df+1)/2)*Math.log(1+t*t/df));
+}
+function fCdf(x,d1,d2){ return x<=0?0:betaI(d1*x/(d1*x+d2),d1/2,d2/2); }
+function fPdf(x,d1,d2){
+  if(x<=0) return 0;
+  return Math.exp((d1/2)*Math.log(d1/d2)+(d1/2-1)*Math.log(x)
+        -((d1+d2)/2)*Math.log(1+d1*x/d2)
+        -(logGamma(d1/2)+logGamma(d2/2)-logGamma((d1+d2)/2)));
+}
+function invert(cdf,p,lo,hi){
+  var i,mid;
+  for(i=0;i<200;i++){ mid=(lo+hi)/2; if(cdf(mid)<p) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+function zCrit(p){ return invert(normCdf,p,-40,40); }
+function tCritV(p,df){ return invert(function(t){return tCdf(t,df);},p,-500,500); }
+function fCritV(p,d1,d2){ return invert(function(x){return fCdf(x,d1,d2);},p,0,1e5); }
+
+/* ================= helpers ================= */
+var test='pool';
+function el(id){ return document.getElementById(id); }
+function V(id){ return +el(id).value; }
+function tail(){ return el('tail').value; }
+function alpha(){ return +el('alpha').value; }
+function fmt(x,d){ return isFinite(x)?x.toFixed(d===undefined?4:d):'.'; }
+function pfmt(p){ if(!isFinite(p)) return '.'; return p<0.0001?'less than 0.0001':p.toFixed(4); }
+function pv(stat,kind,df,tl,d2){
+  if(kind==='z'){
+    if(tl==='two') return 2*(1-normCdf(Math.abs(stat)));
+    return tl==='right'?1-normCdf(stat):normCdf(stat);
+  }
+  if(kind==='t'){
+    if(tl==='two') return 2*(1-tCdf(Math.abs(stat),df));
+    return tl==='right'?1-tCdf(stat,df):tCdf(stat,df);
+  }
+  var F=fCdf(stat,df,d2);
+  if(tl==='two') return 2*Math.min(F,1-F);
+  return tl==='right'?1-F:F;
+}
+
+/* ================= the models ================= */
+function pooled(m1,m2,s1,s2,n1,n2,D0){
+  var sp2=((n1-1)*s1*s1+(n2-1)*s2*s2)/(n1+n2-2);
+  var se=Math.sqrt(sp2*(1/n1+1/n2));
+  return {sp2:sp2,sp:Math.sqrt(sp2),se:se,df:n1+n2-2,t:(m1-m2-D0)/se};
+}
+function welch(m1,m2,s1,s2,n1,n2,D0){
+  var a=s1*s1/n1, b=s2*s2/n2, se=Math.sqrt(a+b);
+  var df=(a+b)*(a+b)/((a*a)/(n1-1)+(b*b)/(n2-1));
+  return {se:se,df:df,t:(m1-m2-D0)/se};
+}
+
+function model(){
+  var tl=tail(), D0=V('d0')/10, m={};
+  if(test==='pool'||test==='wel'){
+    var m1=V('m1')/10,m2=V('m2')/10,s1=V('sd1')/10,s2=V('sd2')/10,n1=V('n1'),n2=V('n2');
+    var P=pooled(m1,m2,s1,s2,n1,n2,D0), W=welch(m1,m2,s1,s2,n1,n2,D0);
+    var use = test==='pool'?P:W;
+    m={kind:'t',stat:use.t,se:use.se,df:use.df,P:P,W:W,
+       samp:{m:[m1,m2],s:[s1,s2],n:[n1,n2]},
+       lines: test==='pool'
+        ? [['Difference x\u0304\u2081 \u2212 x\u0304\u2082',fmt(m1-m2,2)],
+           ['Pooled variance s\u00b2\u209a','[ '+(n1-1)+'\u00d7'+fmt(s1*s1,2)+' + '+(n2-1)+'\u00d7'+fmt(s2*s2,2)+' ] / '+(n1+n2-2)+' = '+fmt(P.sp2,4)],
+           ['Pooled standard deviation s\u209a',fmt(P.sp,4)],
+           ['Standard error',fmt(P.sp,4)+' \u00d7 \u221a( 1/'+n1+' + 1/'+n2+' ) = '+fmt(P.se,4)],
+           ['Degrees of freedom n\u2081 + n\u2082 \u2212 2',String(P.df)],
+           ['Test statistic t','( '+fmt(m1-m2,2)+' \u2212 '+fmt(D0,1)+' ) / '+fmt(P.se,4)+' = '+fmt(P.t,4)]]
+        : [['Difference x\u0304\u2081 \u2212 x\u0304\u2082',fmt(m1-m2,2)],
+           ['s\u2081\u00b2 / n\u2081 and s\u2082\u00b2 / n\u2082',fmt(s1*s1/n1,4)+' and '+fmt(s2*s2/n2,4)],
+           ['Standard error','\u221a( '+fmt(s1*s1/n1,4)+' + '+fmt(s2*s2/n2,4)+' ) = '+fmt(W.se,4)],
+           ['Welch degrees of freedom',fmt(W.df,3)+', not a whole number and not n\u2081 + n\u2082 \u2212 2'],
+           ['Test statistic t','( '+fmt(m1-m2,2)+' \u2212 '+fmt(D0,1)+' ) / '+fmt(W.se,4)+' = '+fmt(W.t,4)]],
+       drive:{lo:D0-5*use.se,hi:D0+5*use.se,cur:m1-m2,
+              label:'Difference between the sample means',
+              f:function(v){ return pv((v-D0)/use.se,'t',use.df,tl); }}};
+  } else if(test==='pair'){
+    var a1=V('pm1')/10,a2=V('pm2')/10,b1=V('ps1')/10,b2=V('ps2')/10,n=V('pn'),r=V('pr')/100;
+    var sd2=b1*b1+b2*b2-2*r*b1*b2;
+    if(sd2<1e-6) sd2=1e-6;
+    var sdd=Math.sqrt(sd2), dbar=a1-a2, sePair=sdd/Math.sqrt(n), tPair=(dbar-D0)/sePair;
+    var Pind=pooled(a1,a2,b1,b2,n,n,D0);
+    m={kind:'t',stat:tPair,se:sePair,df:n-1,P:Pind,pairS:sdd,
+       samp:{m:[a1,a2],s:[b1,b2],n:[n,n]},
+       lines:[['Mean difference d\u0304 = x\u0304\u2081 \u2212 x\u0304\u2082',fmt(dbar,2)],
+              ['Standard deviation of the differences','\u221a( '+fmt(b1*b1,2)+' + '+fmt(b2*b2,2)+' \u2212 2\u00d7'+fmt(r,2)+'\u00d7'+fmt(b1,1)+'\u00d7'+fmt(b2,1)+' ) = '+fmt(sdd,4)],
+              ['Standard error s_d / \u221an',fmt(sdd,4)+' / \u221a'+n+' = '+fmt(sePair,4)],
+              ['Degrees of freedom n \u2212 1',String(n-1)],
+              ['Test statistic t','( '+fmt(dbar,2)+' \u2212 '+fmt(D0,1)+' ) / '+fmt(sePair,4)+' = '+fmt(tPair,4)]],
+       drive:{lo:-0.9,hi:0.95,cur:r,
+              label:'Correlation between the paired measurements',
+              f:function(v){
+                 var q=b1*b1+b2*b2-2*v*b1*b2; if(q<1e-6) q=1e-6;
+                 var se2=Math.sqrt(q)/Math.sqrt(n);
+                 return pv((dbar-D0)/se2,'t',n-1,tl);
+              }}};
+  } else if(test==='prop'){
+    var p1=V('q1')/100,p2=V('q2')/100,k1=V('qn1'),k2=V('qn2');
+    var x1=Math.round(p1*k1), x2=Math.round(p2*k2);
+    p1=x1/k1; p2=x2/k2;
+    var pb=(x1+x2)/(k1+k2), seP=Math.sqrt(pb*(1-pb)*(1/k1+1/k2));
+    var zst=(p1-p2)/seP;
+    m={kind:'z',stat:zst,se:seP,df:null,
+       samp:{m:[p1,p2],s:[Math.sqrt(p1*(1-p1)),Math.sqrt(p2*(1-p2))],n:[k1,k2],prop:true},
+       lines:[['Successes',x1+' of '+k1+' and '+x2+' of '+k2],
+              ['Sample proportions',fmt(p1,4)+' and '+fmt(p2,4)],
+              ['Pooled proportion p\u0304','( '+x1+' + '+x2+' ) / ( '+k1+' + '+k2+' ) = '+fmt(pb,4)],
+              ['Standard error','\u221a[ '+fmt(pb,4)+'\u00d7'+fmt(1-pb,4)+'\u00d7( 1/'+k1+' + 1/'+k2+' ) ] = '+fmt(seP,5)],
+              ['Test statistic z',fmt(p1-p2,4)+' / '+fmt(seP,5)+' = '+fmt(zst,4)]],
+       drive:{lo:Math.max(0.01,p2-0.35),hi:Math.min(0.99,p2+0.35),cur:p1,
+              label:'Sample proportion in group one',
+              f:function(v){
+                 /* left continuous here, so the curve is smooth rather than a staircase
+                    of the attainable counts */
+                 var pbb=(v*k1+x2)/(k1+k2), s2=Math.sqrt(pbb*(1-pbb)*(1/k1+1/k2));
+                 return pv((v-p2)/s2,'z',null,tl);
+              }}};
+  } else {
+    var f1=V('sd1')/10,f2=V('sd2')/10,g1=V('n1'),g2=V('n2');
+    var Fst=(f1*f1)/(f2*f2), d1=g1-1, d2=g2-1;
+    m={kind:'f',stat:Fst,se:null,df:d1,df2:d2,
+       samp:{m:[0,0],s:[f1,f2],n:[g1,g2],varOnly:true},
+       lines:[['Sample variances',fmt(f1*f1,3)+' and '+fmt(f2*f2,3)],
+              ['Test statistic F','s\u2081\u00b2 / s\u2082\u00b2 = '+fmt(f1*f1,3)+' / '+fmt(f2*f2,3)+' = '+fmt(Fst,4)],
+              ['Degrees of freedom',d1+' in the numerator and '+d2+' in the denominator'],
+              ['What it decides','A large p value supports treating the two variances as equal, which is the assumption the pooled t test needs']],
+       drive:{lo:0.3*f2,hi:2.4*f2,cur:f1,
+              label:'Standard deviation of sample one',
+              f:function(v){ return pv((v*v)/(f2*f2),'f',d1,tail(),d2); }}};
+  }
+  m.p=pv(m.stat,m.kind,m.df,tl,m.df2);
+  return m;
+}
+
+/* ================= drawing ================= */
+function setup(cv){
+  var dpr=window.devicePixelRatio||1,r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  var ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,r.width,r.height);
+  return {ctx:ctx,w:r.width,h:r.height};
+}
+
+function drawMain(m){
+  var s=setup(el('cvMain')),ctx=s.ctx,w=s.w,h=s.h;
+  var padL=14,padR=14,padT=16,padB=34,a=alpha(),tl=tail();
+  var lo,hi,pdf,cl=null,cr=null,i,x;
+  if(m.kind==='z'){
+    lo=-4.6;hi=4.6;pdf=normPdf;
+    if(tl==='two'){cl=zCrit(a/2);cr=zCrit(1-a/2);} else if(tl==='right') cr=zCrit(1-a); else cl=zCrit(a);
+  } else if(m.kind==='t'){
+    lo=-4.8;hi=4.8;pdf=function(v){return tPdf(v,m.df);};
+    if(tl==='two'){cl=tCritV(a/2,m.df);cr=tCritV(1-a/2,m.df);} else if(tl==='right') cr=tCritV(1-a,m.df); else cl=tCritV(a,m.df);
+  } else {
+    lo=0;hi=Math.max(3.2,m.stat*1.6);pdf=function(v){return fPdf(v,m.df,m.df2);};
+    if(tl==='two'){cl=fCritV(a/2,m.df,m.df2);cr=fCritV(1-a/2,m.df,m.df2);}
+    else if(tl==='right') cr=fCritV(1-a,m.df,m.df2); else cl=fCritV(a,m.df,m.df2);
+    hi=Math.max(hi,(cr||0)*1.2);
+  }
+  lo=Math.min(lo,m.stat-0.6); hi=Math.max(hi,m.stat+0.6);
+  var peak=0;
+  for(i=0;i<=400;i++){x=lo+(hi-lo)*i/400;peak=Math.max(peak,pdf(x));}
+  function px(v){return padL+(v-lo)/(hi-lo)*(w-padL-padR);}
+  function py(d){return h-padB-(d/peak)*(h-padT-padB);}
+  function fill(from,to,style){
+    if(to<=from) return;
+    ctx.beginPath(); ctx.moveTo(px(from),h-padB);
+    for(i=0;i<=200;i++){x=from+(to-from)*i/200;ctx.lineTo(px(x),py(pdf(x)));}
+    ctx.lineTo(px(to),h-padB); ctx.closePath(); ctx.fillStyle=style; ctx.fill();
+  }
+  ctx.fillStyle='#EDEDF1';
+  if(cl!==null&&cl>lo) ctx.fillRect(px(lo),padT-6,px(cl)-px(lo),h-padB-padT+6);
+  if(cr!==null&&cr<hi) ctx.fillRect(px(cr),padT-6,px(hi)-px(cr),h-padB-padT+6);
+  var pa='rgba(155,28,46,0.35)';
+  if(m.kind==='f'){
+    var F=fCdf(m.stat,m.df,m.df2);
+    if(tl==='right') fill(Math.min(m.stat,hi),hi,pa);
+    else if(tl==='left') fill(lo,m.stat,pa);
+    else if(F>0.5){
+      fill(Math.min(m.stat,hi),hi,pa);
+      var mir=fCritV(Math.max(1e-9,1-F),m.df,m.df2); if(mir>lo) fill(lo,mir,pa);
+    } else {
+      fill(lo,m.stat,pa);
+      var mir2=fCritV(Math.min(1-1e-9,1-F),m.df,m.df2); if(mir2<hi) fill(mir2,hi,pa);
+    }
+  } else {
+    if(tl==='two'){ fill(lo,-Math.abs(m.stat),pa); fill(Math.abs(m.stat),hi,pa); }
+    else if(tl==='right') fill(m.stat,hi,pa);
+    else fill(lo,m.stat,pa);
+  }
+  ctx.strokeStyle='#111827'; ctx.lineWidth=2.4; ctx.beginPath();
+  for(i=0;i<=500;i++){x=lo+(hi-lo)*i/500; if(i===0)ctx.moveTo(px(x),py(pdf(x))); else ctx.lineTo(px(x),py(pdf(x)));}
+  ctx.stroke();
+  ctx.strokeStyle='#8A9099'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+  [cl,cr].forEach(function(c){
+    if(c===null||c<lo||c>hi) return;
+    ctx.beginPath(); ctx.moveTo(px(c),padT); ctx.lineTo(px(c),h-padB); ctx.stroke();
+    ctx.fillStyle='#6B7280'; ctx.font='11.5px Calibri, sans-serif';
+    ctx.fillText(fmt(c,3),Math.min(Math.max(px(c)-16,2),w-42),h-padB-7);
+  });
+  ctx.setLineDash([]);
+  if(m.stat>=lo&&m.stat<=hi){
+    ctx.strokeStyle='#9B1C2E'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(px(m.stat),padT-4); ctx.lineTo(px(m.stat),h-padB); ctx.stroke();
+    ctx.fillStyle='#9B1C2E'; ctx.font='bold 13px Calibri, sans-serif';
+    var lbl=(m.kind==='f'?'F = ':(m.kind==='t'?'t = ':'z = '))+fmt(m.stat,3);
+    ctx.fillText(lbl,Math.min(px(m.stat)+6,w-88),padT+11);
+  }
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  ctx.fillText(fmt(lo,1),padL,h-14); ctx.fillText(fmt(hi,1),w-padR-24,h-14);
+  var cap=m.kind==='f'?('F with '+m.df+' and '+m.df2+' degrees of freedom')
+        :(m.kind==='t'?('t with '+fmt(m.df,2)+' degrees of freedom'):'Standard normal');
+  ctx.fillText(cap,w/2-95,h-2);
+}
+
+function drawResp(m){
+  var s=setup(el('cvResp')),ctx=s.ctx,w=s.w,h=s.h;
+  var padL=44,padR=16,padT=16,padB=34,d=m.drive,a=alpha(),i;
+  function px(v){return padL+(v-d.lo)/(d.hi-d.lo)*(w-padL-padR);}
+  function py(p){return h-padB-p*(h-padT-padB);}
+  ctx.strokeStyle='#EFEFF1'; ctx.lineWidth=1;
+  for(var g=0;g<=4;g++){
+    var yy=padT+(h-padT-padB)*g/4;
+    ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(w-padR,yy); ctx.stroke();
+    ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+    ctx.fillText((1-g/4).toFixed(2),8,yy+4);
+  }
+  ctx.strokeStyle='#9B1C2E'; ctx.lineWidth=3; ctx.beginPath();
+  for(i=0;i<=320;i++){
+    var v=d.lo+(d.hi-d.lo)*i/320,p=d.f(v);
+    if(!isFinite(p)) p=0;
+    if(i===0) ctx.moveTo(px(v),py(p)); else ctx.lineTo(px(v),py(p));
+  }
+  ctx.stroke();
+  ctx.strokeStyle='#111827'; ctx.setLineDash([5,4]); ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(padL,py(a)); ctx.lineTo(w-padR,py(a)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#111827'; ctx.font='11.5px Calibri, sans-serif';
+  ctx.fillText('\u03b1 = '+a,padL+4,py(a)-7);
+  var cp=d.f(d.cur);
+  ctx.fillStyle=cp<a?'#C0392B':'#1F6B4A';
+  ctx.beginPath(); ctx.arc(px(d.cur),py(cp),6,0,2*Math.PI); ctx.fill();
+  ctx.font='bold 12.5px Calibri, sans-serif';
+  var ly=py(cp)-12; if(Math.abs(ly-(py(a)-7))<13) ly=py(cp)+20;
+  ly=Math.max(padT+11,Math.min(ly,h-padB-9));
+  var lx=Math.min(px(d.cur)+9,w-118),lt='p = '+pfmt(cp);
+  ctx.save(); ctx.fillStyle='#FFFFFF';
+  ctx.fillRect(lx-3,ly-12,ctx.measureText(lt).width+6,16); ctx.restore();
+  ctx.fillText(lt,lx,ly);
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  ctx.fillText(fmt(d.lo,2),padL,h-14); ctx.fillText(fmt(d.hi,2),w-padR-32,h-14);
+  ctx.fillText(d.label,Math.max(padL,w/2-d.label.length*2.8),h-2);
+}
+
+function drawSamp(m){
+  var s=setup(el('cvSamp')),ctx=s.ctx,w=s.w,h=s.h;
+  var padL=18,padR=18,padT=20,padB=44,i,x;
+  var sp=m.samp, mode=el('sampMode').value;
+  var useMeans=(mode==='means')||sp.prop;      /* a proportion only makes sense as p hat */
+  var C=['#9B1C2E','#1D5F73'], FILL=['rgba(155,28,46,0.22)','rgba(29,95,115,0.22)'];
+  var sd=[0,0];
+  for(i=0;i<2;i++){
+    sd[i]= useMeans ? sp.s[i]/Math.sqrt(sp.n[i]) : sp.s[i];
+    if(!(sd[i]>1e-9)) sd[i]=1e-9;
+  }
+  var lo=Math.min(sp.m[0]-3.9*sd[0],sp.m[1]-3.9*sd[1]);
+  var hi=Math.max(sp.m[0]+3.9*sd[0],sp.m[1]+3.9*sd[1]);
+  if(hi-lo<1e-9){ lo-=1; hi+=1; }
+  function pdf(v,i2){ var z=(v-sp.m[i2])/sd[i2]; return Math.exp(-0.5*z*z)/(sd[i2]*Math.sqrt(2*Math.PI)); }
+  var peak=Math.max(pdf(sp.m[0],0),pdf(sp.m[1],1));
+  function px(v){ return padL+(v-lo)/(hi-lo)*(w-padL-padR); }
+  function py(d){ return h-padB-(d/peak)*(h-padT-padB); }
+
+  /* the shared region under both curves */
+  var N=600, step=(hi-lo)/N, ov=0;
+  ctx.beginPath(); ctx.moveTo(px(lo),h-padB);
+  for(i=0;i<=N;i++){
+    x=lo+step*i;
+    var mn=Math.min(pdf(x,0),pdf(x,1));
+    ov+=mn*step;
+    ctx.lineTo(px(x),py(mn));
+  }
+  ctx.lineTo(px(hi),h-padB); ctx.closePath();
+  ctx.fillStyle='#E9E9EC'; ctx.fill();
+
+  /* the two curves */
+  for(i=0;i<2;i++){
+    ctx.beginPath(); ctx.moveTo(px(lo),h-padB);
+    for(var j=0;j<=N;j++){ x=lo+step*j; ctx.lineTo(px(x),py(pdf(x,i))); }
+    ctx.lineTo(px(hi),h-padB); ctx.closePath();
+    ctx.fillStyle=FILL[i]; ctx.fill();
+    ctx.beginPath();
+    for(var k=0;k<=N;k++){ x=lo+step*k; if(k===0) ctx.moveTo(px(x),py(pdf(x,i))); else ctx.lineTo(px(x),py(pdf(x,i))); }
+    ctx.strokeStyle=C[i]; ctx.lineWidth=2.6; ctx.stroke();
+  }
+  /* centres */
+  for(i=0;i<2;i++){
+    ctx.strokeStyle=C[i]; ctx.lineWidth=1.6; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(px(sp.m[i]),py(pdf(sp.m[i],i))); ctx.lineTo(px(sp.m[i]),h-padB); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=C[i]; ctx.font='bold 12.5px Calibri, sans-serif';
+    var lab=sp.varOnly?('s = '+fmt(sp.s[i],2)):fmt(sp.m[i],sp.prop?3:2);
+    var wLab=ctx.measureText(lab).width;
+    /* each label sits on the outer side of its own curve so the two never crowd */
+    var outward = (sp.m[i]<=sp.m[1-i]) ? -1 : 1;
+    if(Math.abs(sp.m[0]-sp.m[1])<1e-9) outward = (i===0?-1:1);
+    var sameCentre = Math.abs(sp.m[0]-sp.m[1])<1e-9;
+    var off = sameCentre?26:8;
+    var lx = outward<0 ? px(sp.m[i])-wLab-off : px(sp.m[i])+off;
+    var ly = py(pdf(sp.m[i],i))-8 - (sameCentre ? i*17 : (sd[i]>sd[1-i]?0:14));
+    lx=Math.max(2,Math.min(lx,w-wLab-4)); ly=Math.max(padT+2,ly);
+    ctx.save(); ctx.fillStyle='#FFFFFF'; ctx.fillRect(lx-3,ly-12,wLab+6,16); ctx.restore();
+    ctx.fillStyle=C[i];
+    ctx.fillText(lab,lx,ly);
+  }
+  /* the gap between the two centres */
+  if(!sp.varOnly && Math.abs(sp.m[0]-sp.m[1])>1e-9){
+    var y=h-padB+14;
+    ctx.strokeStyle='#6B7280'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(px(sp.m[0]),y); ctx.lineTo(px(sp.m[1]),y); ctx.stroke();
+    [sp.m[0],sp.m[1]].forEach(function(v){
+      ctx.beginPath(); ctx.moveTo(px(v),y-4); ctx.lineTo(px(v),y+4); ctx.stroke();
+    });
+    ctx.fillStyle='#6B7280'; ctx.font='11.5px Calibri, sans-serif';
+    var gap='gap '+fmt(Math.abs(sp.m[0]-sp.m[1]),sp.prop?3:2);
+    ctx.fillText(gap,(px(sp.m[0])+px(sp.m[1]))/2-ctx.measureText(gap).width/2,y+16);
+  }
+  ctx.strokeStyle='#E3E3E6'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL,h-padB+0.5); ctx.lineTo(w-padR,h-padB+0.5); ctx.stroke();
+  ctx.fillStyle='#8A9099'; ctx.font='11px Calibri, sans-serif';
+  ctx.fillText(fmt(lo,2),padL,h-6); ctx.fillText(fmt(hi,2),w-padR-34,h-6);
+
+  /* legend */
+  var n1=sp.varOnly?'Sample one':'Group one', n2=sp.varOnly?'Sample two':'Group two';
+  var unit=useMeans?'standard error':'standard deviation';
+  el('sampLegend').innerHTML=
+    '<span class="swatch" style="background:'+C[0]+'"></span>'+n1+', '+unit+' '+fmt(sd[0],3)+
+    '<span class="swatch" style="background:'+C[1]+';margin-left:16px"></span>'+n2+', '+unit+' '+fmt(sd[1],3)+
+    '<span class="swatch" style="background:#E9E9EC;margin-left:16px"></span>shared area, '+
+    (100*Math.max(0,Math.min(1,ov))).toFixed(1)+' percent overlap';
+}
+
+/* ================= text ================= */
+function hypText(){
+  var tl=tail(), D0=V('d0')/10;
+  var w = tl==='two'?'is not equal to':(tl==='right'?'is greater than':'is less than');
+  var d = D0===0?'':' by more than '+fmt(D0,1);
+  if(test==='pool')
+    return '<b>H\u2080:</b> \u03bc\u2081 \u2212 \u03bc\u2082 = '+fmt(D0,1)+' &nbsp; <b>H\u2081:</b> \u03bc\u2081 \u2212 \u03bc\u2082 '+w+' '+fmt(D0,1)+
+      ' &nbsp; <span class="q">Independent samples, variances assumed equal, pooled t test</span>';
+  if(test==='wel')
+    return '<b>H\u2080:</b> \u03bc\u2081 \u2212 \u03bc\u2082 = '+fmt(D0,1)+' &nbsp; <b>H\u2081:</b> \u03bc\u2081 \u2212 \u03bc\u2082 '+w+' '+fmt(D0,1)+
+      ' &nbsp; <span class="q">Independent samples, variances not assumed equal, Welch t test</span>';
+  if(test==='pair')
+    return '<b>H\u2080:</b> \u03bc_d = '+fmt(D0,1)+' &nbsp; <b>H\u2081:</b> \u03bc_d '+w+' '+fmt(D0,1)+
+      ' &nbsp; <span class="q">Dependent samples, one t test on the n differences</span>';
+  if(test==='prop')
+    return '<b>H\u2080:</b> p\u2081 = p\u2082 &nbsp; <b>H\u2081:</b> p\u2081 '+w+' p\u2082'+
+      ' &nbsp; <span class="q">Two sample z test for proportions, standard error pooled under H\u2080</span>';
+  return '<b>H\u2080:</b> \u03c3\u2081\u00b2 = \u03c3\u2082\u00b2 &nbsp; <b>H\u2081:</b> \u03c3\u2081\u00b2 '+w+' \u03c3\u2082\u00b2'+
+    ' &nbsp; <span class="q">F test, used to decide whether the pooled t test is defensible</span>';
+}
+
+var FOOT={
+ pool:['What to demonstrate with the pooled t test',
+  ['Move x\u0304\u2081 away from x\u0304\u2082 and the p value falls, exactly as in the one sample case. The difference between the means is doing the same job the difference from \u03bc\u2080 did there.',
+   'Now raise s\u2081 alone. The pooled variance is a weighted average of the two sample variances, so a single noisy group widens the standard error for both.',
+   'Set n\u2081 to 8 and n\u2082 to 200, then move s\u2081 up and down. The pooled estimate leans heavily towards the larger sample, which is exactly the behaviour that becomes dangerous when the variances really do differ.',
+   'Compare the panel below. When n\u2081 and n\u2082 are similar the pooled and the Welch results almost coincide. The pooled test buys only a slightly larger number of degrees of freedom.']],
+ wel:['What to demonstrate with the Welch t test',
+  ['Notice that the degrees of freedom are not a whole number and do not equal n\u2081 + n\u2082 \u2212 2. They are estimated from the data, which is what the Welch correction does.',
+   'Set n\u2081 = 10 with s\u2081 = 20, and n\u2082 = 100 with s\u2082 = 5. The two tests now disagree, and the pooled test reports the smaller p value. It is the one that is wrong.',
+   'Reverse it: put the large variance with the large sample. The pooled test now becomes conservative instead. The direction of the error depends on which group is bigger, which is why it cannot simply be corrected in the head.',
+   'Because Welch is barely less powerful when the variances truly are equal, and much safer when they are not, many statisticians now recommend using it by default.']],
+ pair:['What to demonstrate with the paired t test',
+  ['The correlation slider is the point of this tab. Move r from 0 up to 0.9 with everything else fixed. The two group means never move, yet the p value collapses.',
+   'The reason is in the working: s_d = \u221a( s\u2081\u00b2 + s\u2082\u00b2 \u2212 2 r s\u2081 s\u2082 ). Positive correlation subtracts variability, because each subject acts as its own control and the differences between subjects cancel.',
+   'Set r = 0 and compare with the independent test below. The paired test is now slightly worse, because it spent degrees of freedom, n \u2212 1 instead of 2n \u2212 2, and bought nothing. Pairing a design that is not naturally paired is a real cost.',
+   'Then push r negative. The paired standard error exceeds the independent one. This is rare in practice but it shows that pairing is only a gain when the pairs really do move together.']],
+ prop:['What to demonstrate with the two proportion test',
+  ['Note that the standard error uses the pooled proportion p\u0304 and not the two separate ones. Under H\u2080 the two groups share a common p, so we estimate that single value from all the data.',
+   'Hold the gap between p\u0302\u2081 and p\u0302\u2082 fixed at about 0.09 and raise both sample sizes. The same gap becomes significant, which is the sample size lesson again.',
+   'Move both proportions towards 0.5. The standard error is at its largest there, so the same gap is harder to establish. Near 0.9 the same gap is easy.',
+   'Check that every one of the four counts of successes and failures is at least 5 before you trust the normal approximation.']],
+ f:['What to demonstrate with the F test for two variances',
+  ['This test answers the question the first two tabs raise: may we treat the two population variances as equal, and therefore pool them?',
+   'The F distribution is skewed and its shape depends on two separate degrees of freedom, so the lower and upper critical values are not mirror images.',
+   'Move s\u2081 towards s\u2082 and F approaches one, which is what H\u2080 predicts. A large p value here is the usual justification given for the pooled t test.',
+   'Say plainly that this test is very sensitive to departures from normality, so a small p value may reflect a non normal population rather than unequal variances. Many practitioners now skip it and use the Welch test regardless.']]
+};
+
+function render(){
+  var m=model(),a=alpha(),tl=tail();
+  el('hyp').innerHTML=hypText();
+  el('m1v').textContent=fmt(V('m1')/10,1); el('m2v').textContent=fmt(V('m2')/10,1);
+  el('sd1v').textContent=fmt(V('sd1')/10,1); el('sd2v').textContent=fmt(V('sd2')/10,1);
+  el('n1v').textContent=V('n1'); el('n2v').textContent=V('n2');
+  el('pm1v').textContent=fmt(V('pm1')/10,1); el('pm2v').textContent=fmt(V('pm2')/10,1);
+  el('ps1v').textContent=fmt(V('ps1')/10,1); el('ps2v').textContent=fmt(V('ps2')/10,1);
+  el('pnv').textContent=V('pn'); el('prv').textContent=fmt(V('pr')/100,2);
+  el('q1v').textContent=fmt(V('q1')/100,2); el('q2v').textContent=fmt(V('q2')/100,2);
+  el('qn1v').textContent=V('qn1'); el('qn2v').textContent=V('qn2');
+  el('d0v').textContent=fmt(V('d0')/10,1);
+
+  el('labStat').textContent=m.kind==='f'?'Test statistic F':(m.kind==='z'?'Test statistic z':'Test statistic t');
+  el('vStat').textContent=fmt(m.stat,4);
+  if(m.kind==='f'){ el('labSe').textContent='Degrees of freedom'; el('vSe').textContent=m.df+' and '+m.df2; }
+  else { el('labSe').textContent='Standard error of the difference'; el('vSe').textContent=fmt(m.se,4); }
+  el('vP').textContent=pfmt(m.p);
+
+  var crit;
+  if(m.kind==='z') crit=tl==='two'?'\u00b1 '+fmt(zCrit(1-a/2),3):(tl==='right'?fmt(zCrit(1-a),3):fmt(zCrit(a),3));
+  else if(m.kind==='t') crit=tl==='two'?'\u00b1 '+fmt(tCritV(1-a/2,m.df),3):(tl==='right'?fmt(tCritV(1-a,m.df),3):fmt(tCritV(a,m.df),3));
+  else crit=tl==='two'?fmt(fCritV(a/2,m.df,m.df2),3)+' and '+fmt(fCritV(1-a/2,m.df,m.df2),3)
+        :(tl==='right'?fmt(fCritV(1-a,m.df,m.df2),3):fmt(fCritV(a,m.df,m.df2),3));
+  el('vCrit').textContent=crit;
+
+  var rej=m.p<a,v=el('verdict');
+  v.className='verdict '+(rej?'rej':'keep');
+  var what = test==='f'?'the two population variances are equal'
+           : (test==='prop'?'the two population proportions are equal'
+           : (test==='pair'?'the mean difference equals '+fmt(V('d0')/10,1)
+           : 'the two population means differ by '+fmt(V('d0')/10,1)));
+  v.innerHTML=(rej?'Reject H\u2080 at \u03b1 = '+a:'Do not reject H\u2080 at \u03b1 = '+a)+
+    '<span>If '+what+', a result this extreme or more so would arise in about '+(m.p*100).toFixed(2)+
+    ' percent of pairs of samples. '+(rej?'That is rarer than the '+(a*100)+' percent we agreed to tolerate.'
+    :'That is not rare enough to be surprising, so H\u2080 survives.')+'</span>';
+
+  var html='';
+  m.lines.forEach(function(l){ html+='<div class="ln"><div class="k">'+l[0]+'</div><div class="v">'+l[1]+'</div></div>'; });
+  el('work').innerHTML=html;
+
+  var f=FOOT[test],fh='<p style="margin:0 0 8px"><b>'+f[0]+'</b></p><ul>';
+  f[1].forEach(function(x){fh+='<li>'+x+'</li>';});
+  el('foot').innerHTML=fh+'</ul>';
+
+  el('mainNote').textContent = m.kind==='f'
+    ? 'Skewed, positive only, and its shape depends on both degrees of freedom.'
+    : 'What the statistic would do across repeated pairs of samples if H\u2080 were exactly true.';
+  el('respNote').textContent='p value against '+m.drive.label.toLowerCase()+', with everything else held where you set it.';
+
+  /* comparison panel */
+  var cp=el('cmpPanel');
+  if(test==='pool'||test==='wel'){
+    cp.className='panel plain';
+    el('cmpTitle').textContent='Pooled against Welch on exactly the same numbers';
+    el('cmpNote').textContent='The two rows use identical data. They differ only in whether the variances are assumed equal.';
+    var P=m.P,Wl=m.W;
+    var pP=pv(P.t,'t',P.df,tl), pW=pv(Wl.t,'t',Wl.df,tl);
+    el('cmpBody').innerHTML=
+      '<table class="cmp"><tr><th>Method</th><th>Standard error</th><th>Degrees of freedom</th><th>t</th><th>p value</th><th>Decision at \u03b1 = '+a+'</th></tr>'+
+      '<tr><td'+(test==='pool'?' class="hi"':'')+'>Pooled, equal variances</td><td>'+fmt(P.se,4)+'</td><td>'+P.df+'</td><td>'+fmt(P.t,4)+'</td><td>'+pfmt(pP)+'</td><td>'+(pP<a?'Reject':'Do not reject')+'</td></tr>'+
+      '<tr><td'+(test==='wel'?' class="hi"':'')+'>Welch, unequal variances</td><td>'+fmt(Wl.se,4)+'</td><td>'+fmt(Wl.df,3)+'</td><td>'+fmt(Wl.t,4)+'</td><td>'+pfmt(pW)+'</td><td>'+(pW<a?'Reject':'Do not reject')+'</td></tr></table>'+
+      (Math.abs(pP-pW)>0.01?'<p style="margin:10px 0 0;color:#9B1C2E">The two methods disagree noticeably here. That happens when the sample sizes are unequal and the variances are unequal at the same time, and in that situation the Welch result is the one to trust.</p>':'');
+  } else if(test==='pair'){
+    cp.className='panel plain';
+    el('cmpTitle').textContent='What pairing bought you';
+    el('cmpNote').textContent='The same two group means, analysed once as matched pairs and once as if the groups were independent.';
+    var Pi=m.P, pPair=m.p, pInd=pv(Pi.t,'t',Pi.df,tl);
+    var gain=(pInd>0&&pPair>0)?(pInd/pPair):0;
+    el('cmpBody').innerHTML=
+      '<table class="cmp"><tr><th>Analysis</th><th>Spread used</th><th>Standard error</th><th>Degrees of freedom</th><th>t</th><th>p value</th></tr>'+
+      '<tr><td class="hi">Paired, dependent</td><td>s_d = '+fmt(m.pairS,4)+'</td><td>'+fmt(m.se,4)+'</td><td>'+m.df+'</td><td>'+fmt(m.stat,4)+'</td><td>'+pfmt(pPair)+'</td></tr>'+
+      '<tr><td>Treated as independent</td><td>s\u209a = '+fmt(Pi.sp,4)+'</td><td>'+fmt(Pi.se,4)+'</td><td>'+Pi.df+'</td><td>'+fmt(Pi.t,4)+'</td><td>'+pfmt(pInd)+'</td></tr></table>'+
+      '<p style="margin:10px 0 0">'+(
+        Math.abs(m.se-Pi.se)<1e-6
+        ? 'The two standard errors are identical, because a correlation of zero means pairing removed nothing. The paired p value is nonetheless the larger of the two, since the design spent degrees of freedom, '+m.df+' instead of '+Pi.df+', and bought no precision in return.'
+        : (m.se<Pi.se
+          ? 'Pairing has reduced the standard error from '+fmt(Pi.se,4)+' to '+fmt(m.se,4)+', a gain bought entirely by the correlation of '+fmt(V('pr')/100,2)+' within each pair.'
+          : 'Pairing has raised the standard error from '+fmt(Pi.se,4)+' to '+fmt(m.se,4)+'. With a correlation of '+fmt(V('pr')/100,2)+' the pairs move against each other, so the design has spent degrees of freedom and lost precision as well.'))+'</p>';
+  } else if(test==='prop'){
+    cp.className='panel plain';
+    el('cmpTitle').textContent='Conditions for the normal approximation';
+    el('cmpNote').textContent='All four counts should be at least 5 before this test is trusted.';
+    var k1=V('qn1'),k2=V('qn2'),x1=Math.round(V('q1')/100*k1),x2=Math.round(V('q2')/100*k2);
+    var okAll=Math.min(x1,k1-x1,x2,k2-x2)>=5;
+    el('cmpBody').innerHTML='<table class="cmp"><tr><th>Group</th><th>Successes</th><th>Failures</th><th>Verdict</th></tr>'+
+      '<tr><td>One</td><td>'+x1+'</td><td>'+(k1-x1)+'</td><td>'+(Math.min(x1,k1-x1)>=5?'Fine':'Too few')+'</td></tr>'+
+      '<tr><td>Two</td><td>'+x2+'</td><td>'+(k2-x2)+'</td><td>'+(Math.min(x2,k2-x2)>=5?'Fine':'Too few')+'</td></tr></table>'+
+      '<p style="margin:10px 0 0;'+(okAll?'':'color:#9B1C2E')+'">'+(okAll
+        ?'All four counts clear the threshold, so the normal approximation is safe.'
+        :'At least one count is below 5. The p value shown should not be reported. Use an exact method instead.')+'</p>';
+  } else {
+    cp.className='panel plain';
+    el('cmpTitle').textContent='What this result implies for the t test';
+    el('cmpNote').textContent='The F test is a gatekeeper, not an end in itself.';
+    el('cmpBody').innerHTML='<p style="margin:0">'+(m.p<a
+      ? 'The p value of '+pfmt(m.p)+' is below \u03b1, so the equal variance assumption is doubtful. Use the Welch t test on the independent samples tab rather than the pooled one.'
+      : 'The p value of '+pfmt(m.p)+' is above \u03b1, so there is no strong evidence against equal variances. The pooled t test is defensible, though the Welch test would cost you very little here.')+'</p>';
+  }
+  var sm=el('sampMode');
+  sm.disabled = (test==='prop'||test==='f');
+  if(test==='prop') sm.value='means';
+  if(test==='f') sm.value='values';
+  el('sampTitle').textContent = test==='f'
+    ? 'The two spreads side by side'
+    : 'The two distributions side by side';
+  el('sampNote').textContent = test==='f'
+    ? 'Both curves share a centre so only the difference in spread shows. That ratio of spreads is the whole of the F statistic.'
+    : (test==='prop'
+      ? 'Each sample proportion across repeated samples. A raw proportion is only zero or one, so only this view is meaningful.'
+      : (sm.value==='means'
+        ? 'Each group mean across repeated samples. Far narrower than the data, which is why a clear difference can sit inside overlapping raw distributions.'
+        : 'The individual observations in each group. Switch the view to see the sampling distributions of the two means instead.'));
+  drawMain(m); drawResp(m); drawSamp(m);
+}
+
+/* ================= wiring ================= */
+function show(id,on){ el(id).className=el(id).className.replace(/\s*hide/,'')+(on?'':' hide'); }
+function setTest(t){
+  test=t;
+  [['tPool','pool'],['tWel','wel'],['tPair','pair'],['tProp','prop'],['tF','f']].forEach(function(p){
+    el(p[0]).className = t===p[1]?'on':'';
+  });
+  show('barInd', t==='pool'||t==='wel'||t==='f');
+  show('barPair', t==='pair');
+  show('barProp', t==='prop');
+  show('d0box', t!=='prop'&&t!=='f');
+  var tl=el('tail');
+  if(t==='f'){ tl.options[1].text='Right tailed, group one is more variable'; tl.options[2].text='Left tailed, group one is less variable'; }
+  else { tl.options[1].text='Right tailed, group one is larger'; tl.options[2].text='Left tailed, group one is smaller'; }
+  /* the F test uses only the spreads and the sizes, so the two mean sliders are switched off there */
+  el('m1').disabled = el('m2').disabled = (t==='f');
+  el('m1').parentNode.style.opacity = el('m2').parentNode.style.opacity = (t==='f'?0.4:1);
+  render();
+}
+el('tPool').onclick=function(){setTest('pool');};
+el('tWel').onclick=function(){setTest('wel');};
+el('tPair').onclick=function(){setTest('pair');};
+el('tProp').onclick=function(){setTest('prop');};
+el('tF').onclick=function(){setTest('f');};
+['m1','m2','sd1','sd2','n1','n2','pm1','pm2','ps1','ps2','pn','pr',
+ 'q1','q2','qn1','qn2','d0','tail','alpha','sampMode'].forEach(function(id){
+  el(id).addEventListener('input',render);
+  el(id).addEventListener('change',render);
+});
+el('reset').onclick=function(){
+  el('m1').value=520; el('m2').value=480; el('sd1').value=80; el('sd2').value=90;
+  el('n1').value=30; el('n2').value=35;
+  el('pm1').value=520; el('pm2').value=480; el('ps1').value=80; el('ps2').value=90;
+  el('pn').value=25; el('pr').value=60;
+  el('q1').value=62; el('q2').value=53; el('qn1').value=200; el('qn2').value=220;
+  el('d0').value=0; el('tail').value='two'; el('alpha').value='0.05';
+  render();
+};
+el('notesBtn').onclick=function(){ el('notes').className='overlay'; };
+el('notesClose').onclick=function(){ el('notes').className='overlay hide'; };
+el('notes').addEventListener('click',function(e){ if(e.target===el('notes')) el('notes').className='overlay hide'; });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') el('notes').className='overlay hide'; });
+
+window.addEventListener('resize',render);
+if(window.ResizeObserver){
+  var ro=new ResizeObserver(function(){ render(); });
+  ['cvSamp','cvMain','cvResp'].forEach(function(id){ ro.observe(el(id).parentNode); });
+}
+setTest('pool');
+</script>
+</body>
+</html>
