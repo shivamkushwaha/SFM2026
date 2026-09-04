@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simpson's Paradox Simulator</title>
+  <style>
+    :root { color-scheme: light dark; --ink:#1e293b; --muted:#64748b; --line:#dbe3ee; --paper:#fff; --canvas:#f5f7fb; --a:#0f766e; --a-bg:#dff7f1; --b:#9a3412; --b-bg:#ffeadf; --tie:#475569; --tie-bg:#e7edf5; --warn:#9a3412; --warn-bg:#fff4dc; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--canvas); color:var(--ink); font:14px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:calc(100% - 48px); margin:24px auto 40px; }
+    header { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; margin-bottom:24px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { margin-bottom:5px; font-size:clamp(1.45rem,2.6vw,1.9rem); }
+    h2 { font-size:1.08rem; margin-bottom:3px; }
+    .lede,.subtle { color:var(--muted); }
+    button { appearance:none; border:1px solid var(--ink); border-radius:8px; padding:.6rem .85rem; background:var(--paper); color:var(--ink); font:inherit; font-weight:600; cursor:pointer; white-space:nowrap; }
+    button:hover { background:var(--ink); color:var(--paper); }
+    .card { background:var(--paper); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 3px rgba(15,23,42,.06); overflow:hidden; margin-bottom:18px; }
+    .dashboard { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(330px,.9fr); gap:18px; align-items:start; }
+    .subgroups .card:last-child { margin-bottom:0; }
+    .section-head { padding:18px 20px 10px; display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .table-wrap { width:100%; }
+    table { width:100%; border-collapse:collapse; table-layout:fixed; }
+    th,td { padding:9px 12px; text-align:left; border-top:1px solid var(--line); overflow-wrap:anywhere; }
+    th { color:var(--muted); font-size:.82rem; font-weight:700; letter-spacing:.02em; text-transform:uppercase; }
+    td:first-child { font-weight:650; }
+    input[type="number"] { width:58px; border:1px solid #aab8c8; border-radius:7px; padding:.36rem; background:var(--paper); color:var(--ink); font:inherit; }
+    input:focus { outline:3px solid #93c5fd; outline-offset:1px; }
+    .editor { display:flex; align-items:center; gap:4px; min-width:0; }
+    input[type="range"] { accent-color:var(--a); width:clamp(38px,6vw,78px); min-width:0; }
+    .badge { display:inline-block; border-radius:999px; padding:.32rem .64rem; font-size:.9rem; font-weight:700; }
+    .badge.a { color:var(--a); background:var(--a-bg); } .badge.b { color:var(--b); background:var(--b-bg); } .badge.tie { color:var(--tie); background:var(--tie-bg); }
+    .winner-row { padding:0 20px 18px; display:flex; align-items:center; gap:9px; }
+    .results { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+    .result { padding:20px; }
+    .metrics { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:14px; }
+    .metric { border-top:1px solid var(--line); padding-top:9px; color:var(--muted); font-size:.9rem; }
+    .metric strong { color:var(--ink); display:block; font-size:1.06rem; }
+    .overall { padding:20px; display:flex; align-items:center; justify-content:space-between; gap:20px; border-top:1px solid var(--line); }
+    .explanation { padding:20px; background:var(--warn-bg); border-left:5px solid #f59e0b; }
+    .explanation h2 { color:var(--warn); }
+    .explanation p { margin-bottom:0; }
+    .note { font-size:.9rem; color:var(--muted); margin:14px 2px 0; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media (prefers-color-scheme: dark) { :root { --ink:#e5edf7; --muted:#aab9cb; --line:#34435a; --paper:#162235; --canvas:#0e1726; --a:#5eead4; --a-bg:#123d3a; --b:#fdba9a; --b-bg:#492518; --tie:#cbd5e1; --tie-bg:#334155; --warn:#fed7aa; --warn-bg:#3d2a12; } input { border-color:#607089; } input:focus { outline-color:#2563eb; } .card { box-shadow:none; } }
+    @media (max-width:800px) { .dashboard { grid-template-columns:1fr; } .subgroups .card:last-child { margin-bottom:18px; } }
+    @media (max-width:650px) { main { width:calc(100% - 20px); margin-top:20px; } header,.overall { align-items:flex-start; flex-direction:column; gap:12px; } .results { grid-template-columns:1fr; } .section-head,.winner-row,.result,.overall,.explanation { padding-left:15px; padding-right:15px; } table,tbody,tr,td { display:block; width:100%; } thead { display:none; } tr { padding:8px 15px; border-top:1px solid var(--line); } td { border:0; padding:4px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; } td:first-child { padding-bottom:7px; } td:not(:first-child)::before { content:attr(data-label); color:var(--muted); font-size:.82rem; font-weight:700; } .editor { justify-content:flex-end; } input[type="range"] { width:76px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div><h1>Simpson's Paradox Simulator</h1><p class="lede">Adjust the number of patients and success rates to see how subgroup and overall conclusions can differ.</p></div>
+      <button id="reset" type="button">Reset to original data</button>
+    </header>
+
+    <div class="dashboard">
+      <div class="subgroups">
+        <section class="card" aria-labelledby="small-title">
+          <div class="section-head"><div><h2 id="small-title">Small stones</h2><span class="subtle">Edit the patient counts and success rates.</span></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Treatment</th><th>Patients</th><th>Success rate</th><th>Successes</th><th>Failures</th></tr></thead><tbody id="small-body"></tbody></table></div>
+          <div class="winner-row">Winner: <span id="small-winner" class="badge"></span></div>
+        </section>
+        <section class="card" aria-labelledby="large-title">
+          <div class="section-head"><div><h2 id="large-title">Large stones</h2><span class="subtle">Edit the patient counts and success rates.</span></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Treatment</th><th>Patients</th><th>Success rate</th><th>Successes</th><th>Failures</th></tr></thead><tbody id="large-body"></tbody></table></div>
+          <div class="winner-row">Winner: <span id="large-winner" class="badge"></span></div>
+        </section>
+      </div>
+      <section class="card" aria-labelledby="overall-title">
+        <div class="section-head"><div><h2 id="overall-title">Overall results</h2><span class="subtle">Totals from both stone sizes.</span></div></div>
+        <div class="results" id="result-cards"></div>
+        <div class="overall"><div><strong>Overall winner</strong><div class="subtle">Combined success rate</div></div><span id="overall-winner" class="badge"></span></div>
+      </section>
+    </div>
+
+    <section class="card explanation" aria-live="polite"><h2 id="paradox-title"></h2><p id="paradox-text"></p></section>
+    <p class="note">Successes are rounded to the nearest whole patient for display; winner calculations use the entered rates and exact totals.</p>
+  </main>
+
+  <script>
+    const defaults = { aSmall:{patients:87,rate:93}, bSmall:{patients:270,rate:87}, aLarge:{patients:263,rate:73}, bLarge:{patients:80,rate:69} };
+    let state = structuredClone(defaults);
+    const rows = [ ['aSmall','A','Small'], ['bSmall','B','Small'], ['aLarge','A','Large'], ['bLarge','B','Large'] ];
+    const el = id => document.getElementById(id);
+    const cleanNumber = (value, min, max) => Math.min(max, Math.max(min, Number.isFinite(+value) ? +value : min));
+    const rate = value => `${value.toFixed(1)}%`;
+    const badge = (node, label, kind) => { node.textContent = label; node.className = `badge ${kind}`; };
+    function createRows() {
+      rows.forEach(([key,treatment,size]) => {
+        const target = el(`${size.toLowerCase()}-body`);
+        target.insertAdjacentHTML('beforeend', `<tr><td>Treatment ${treatment}</td><td data-label="Patients"><div class="editor"><input aria-label="Treatment ${treatment}, ${size} stones patients" id="${key}-patients" type="number" min="0" step="1"><input aria-label="Adjust Treatment ${treatment}, ${size} stones patients" id="${key}-patients-slider" type="range" min="0" max="500" step="1"></div></td><td data-label="Success rate"><div class="editor"><input aria-label="Treatment ${treatment}, ${size} stones success rate" id="${key}-rate" type="number" min="0" max="100" step="0.1"><input aria-label="Adjust Treatment ${treatment}, ${size} stones success rate" id="${key}-rate-slider" type="range" min="0" max="100" step="0.1">%</div></td><td data-label="Successes" id="${key}-successes"></td><td data-label="Failures" id="${key}-failures"></td></tr>`);
+      });
+    }
+    function getGroup(key) { const d=state[key], success=d.patients*d.rate/100; return { ...d, success, failure:d.patients-success }; }
+    function winner(a,b) { if (Math.abs(a-b)<1e-9) return ['Tie','tie']; return a>b ? ['Treatment A','a'] : ['Treatment B','b']; }
+    function render() {
+      rows.forEach(([key]) => { const g=getGroup(key); ['patients','rate'].forEach(field => { const slider=el(`${key}-${field}-slider`); if (field==='patients' && g[field] > +slider.max) slider.max=Math.ceil(g[field]/100)*100; el(`${key}-${field}`).value=g[field]; slider.value=g[field]; }); el(`${key}-successes`).textContent=Math.round(g.success); el(`${key}-failures`).textContent=Math.round(g.failure); });
+      const aS=getGroup('aSmall'), bS=getGroup('bSmall'), aL=getGroup('aLarge'), bL=getGroup('bLarge');
+      const small=winner(aS.rate,bS.rate), large=winner(aL.rate,bL.rate); badge(el('small-winner'),`${small[0]} (${rate(Math.max(aS.rate,bS.rate))})`,small[1]); badge(el('large-winner'),`${large[0]} (${rate(Math.max(aL.rate,bL.rate))})`,large[1]);
+      const totals = { A:{patients:aS.patients+aL.patients,success:aS.success+aL.success}, B:{patients:bS.patients+bL.patients,success:bS.success+bL.success} };
+      totals.A.failure=totals.A.patients-totals.A.success; totals.B.failure=totals.B.patients-totals.B.success; totals.A.rate=totals.A.patients ? totals.A.success/totals.A.patients*100 : 0; totals.B.rate=totals.B.patients ? totals.B.success/totals.B.patients*100 : 0;
+      el('result-cards').innerHTML=['A','B'].map(t=>`<article class="result"><h3>Treatment ${t}</h3><div class="metrics"><div class="metric"><strong>${totals[t].patients}</strong>Patients</div><div class="metric"><strong>${Math.round(totals[t].success)}</strong>Successes</div><div class="metric"><strong>${Math.round(totals[t].failure)}</strong>Failures</div><div class="metric"><strong>${rate(totals[t].rate)}</strong>Success rate</div></div></article>`).join('');
+      const over=winner(totals.A.rate,totals.B.rate); badge(el('overall-winner'),`${over[0]} (${rate(Math.max(totals.A.rate,totals.B.rate))})`,over[1]);
+      const subgroupSame = small[1] !== 'tie' && small[1] === large[1]; const reversed = subgroupSame && over[1] !== 'tie' && over[1] !== small[1];
+      if (reversed) { el('paradox-title').textContent="Simpson's paradox detected"; el('paradox-text').textContent=`${small[0]} has the higher success rate for both small and large stones, but ${over[0]} wins after the results are combined. The treatments saw different mixes of easier and harder cases, which changes the aggregate comparison.`; }
+      else { el('paradox-title').textContent="No Simpson's paradox in this setup"; el('paradox-text').textContent="The overall result does not reverse a consistent winner from both stone-size groups. Try changing the patient mix between treatments to explore how aggregation can change the conclusion."; }
+    }
+    createRows();
+    rows.forEach(([key]) => ['patients','rate'].forEach(field => ['','-slider'].forEach(suffix => el(`${key}-${field}${suffix}`).addEventListener('input', e => { state[key][field] = cleanNumber(e.target.value,0,field==='rate'?100:1000000); render(); }))));
+    el('reset').addEventListener('click',()=>{ state=structuredClone(defaults); render(); });
+    render();
+  </script>
+</body>
+</html>
