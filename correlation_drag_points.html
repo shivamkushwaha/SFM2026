@@ -13,7 +13,7 @@ canvas{width:100%;height:auto;border:1px solid #ddd;border-radius:10px;touch-act
 <button onclick="preset('none')">No correlation</button><button onclick="preset('moderate')">Moderate</button><button onclick="reset()">Reset</button></div></div>
 <div class="card"><canvas id="c" width="1000" height="560"></canvas></div>
 <div class="card metrics"><div class="metric">Pearson r<b id="r">—</b></div><div class="metric">R²<b id="r2">—</b></div><div class="metric">Direction<b id="dir">—</b></div><div class="metric">Strength<b id="str">—</b></div></div>
-<div class="card"><b>Classroom prompt:</b> Ask students to predict what will happen to r before moving a point. Then discuss outliers, direction, strength, and why correlation does not establish causation.</div>
+
 </div>
 <script>
 const c=document.getElementById('c'),x=c.getContext('2d'),W=c.width,H=c.height,p={l:70,r:30,t:30,b:60};
