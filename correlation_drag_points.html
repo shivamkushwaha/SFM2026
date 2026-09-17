@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Correlation — Drag Points</title>
+<style>
+body{font-family:Arial;margin:0;background:#f4f6f8;color:#20252b}.wrap{max-width:1050px;margin:20px auto;padding:0 16px}
+.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 8px #0001}
+h1{margin:0 0 5px}.muted{color:#667085}.buttons{display:flex;gap:7px;flex-wrap:wrap}button{padding:9px 13px;border:1px solid #bbb;border-radius:8px;background:white;cursor:pointer}
+canvas{width:100%;height:auto;border:1px solid #ddd;border-radius:10px;touch-action:none}.metrics{display:flex;gap:10px;flex-wrap:wrap}.metric{background:#f1f5f9;border-radius:9px;padding:10px 16px;min-width:125px}.metric b{display:block;font-size:22px;margin-top:4px}
+</style></head><body><div class="wrap">
+<h1>Correlation: Drag the Points</h1><div class="muted">Drag any point. Pearson's r and the regression line update instantly.</div>
+<div class="card"><div class="buttons">
+<button onclick="preset('positive')">Strong positive</button><button onclick="preset('negative')">Strong negative</button>
+<button onclick="preset('none')">No correlation</button><button onclick="preset('moderate')">Moderate</button><button onclick="reset()">Reset</button></div></div>
+<div class="card"><canvas id="c" width="1000" height="560"></canvas></div>
+<div class="card metrics"><div class="metric">Pearson r<b id="r">—</b></div><div class="metric">R²<b id="r2">—</b></div><div class="metric">Direction<b id="dir">—</b></div><div class="metric">Strength<b id="str">—</b></div></div>
+<div class="card"><b>Classroom prompt:</b> Ask students to predict what will happen to r before moving a point. Then discuss outliers, direction, strength, and why correlation does not establish causation.</div>
+</div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),W=c.width,H=c.height,p={l:70,r:30,t:30,b:60};
+const original=[[12,20],[20,25],[28,31],[35,38],[43,44],[50,52],[58,57],[65,65],[74,72],[84,82]];
+let pts=original.map(a=>({x:a[0],y:a[1]})),drag=-1;
+const X=v=>p.l+v/100*(W-p.l-p.r),Y=v=>H-p.b-v/100*(H-p.t-p.b);
+function invX(v){return (v-p.l)/(W-p.l-p.r)*100} function invY(v){return (H-p.b-v)/(H-p.t-p.b)*100}
+function stat(){let n=pts.length,mx=pts.reduce((s,a)=>s+a.x,0)/n,my=pts.reduce((s,a)=>s+a.y,0)/n,A=0,B=0,C=0;pts.forEach(q=>{A+=(q.x-mx)**2;B+=(q.y-my)**2;C+=(q.x-mx)*(q.y-my)});let b=C/A,a=my-b*mx,r=C/Math.sqrt(A*B);return{a,b,r}}
+function draw(){x.clearRect(0,0,W,H);x.strokeStyle="#d8dee6";x.lineWidth=1;
+for(let v=0;v<=100;v+=20){x.beginPath();x.moveTo(X(v),Y(0));x.lineTo(X(v),Y(100));x.stroke();x.beginPath();x.moveTo(X(0),Y(v));x.lineTo(X(100),Y(v));x.stroke()}
+x.strokeStyle="#344054";x.lineWidth=2;x.beginPath();x.moveTo(X(0),Y(0));x.lineTo(X(100),Y(0));x.moveTo(X(0),Y(0));x.lineTo(X(0),Y(100));x.stroke();
+x.fillStyle="#475467";x.font="14px Arial";for(let v=0;v<=100;v+=20){x.fillText(v,X(v)-5,H-25);x.fillText(v,35,Y(v)+5)}x.fillText("X variable",W/2-30,H-10);
+let s=stat();x.strokeStyle="#667085";x.lineWidth=3;x.beginPath();x.moveTo(X(0),Y(s.a));x.lineTo(X(100),Y(s.a+s.b*100));x.stroke();
+pts.forEach((q,i)=>{x.beginPath();x.arc(X(q.x),Y(q.y),9,0,Math.PI*2);x.fillStyle="#2563eb";x.fill();x.strokeStyle="white";x.lineWidth=2;x.stroke();x.fillStyle="#344054";x.font="11px Arial";x.fillText(i+1,X(q.x)+11,Y(q.y)-8)});
+let r=s.r;document.getElementById("r").textContent=r.toFixed(3);document.getElementById("r2").textContent=(r*r).toFixed(3);document.getElementById("dir").textContent=r>.05?"Positive":r<-.05?"Negative":"None";let z=Math.abs(r);document.getElementById("str").textContent=z<.2?"Very weak":z<.4?"Weak":z<.6?"Moderate":z<.8?"Strong":"Very strong"}
+function set(a){pts=a.map(q=>({x:q[0],y:q[1]}));draw()}
+function reset(){set(original)}
+function preset(t){let a=[];for(let i=0;i<10;i++){let xx=10+i*9;if(t=="positive")a.push([xx,15+i*7+(i%3-1)*4]);if(t=="moderate")a.push([xx,25+i*5+(i%4-1.5)*10]);if(t=="negative")a.push([xx,88-i*7+(i%3-1)*4]);if(t=="none")a.push([xx,[55,22,78,41,65,31,84,49,70,27][i]])}set(a)}
+function near(e){let q=c.getBoundingClientRect(),mx=(e.clientX-q.left)*W/q.width,my=(e.clientY-q.top)*H/q.height,b=-1,d=20;pts.forEach((a,i)=>{let z=Math.hypot(X(a.x)-mx,Y(a.y)-my);if(z<d){d=z;b=i}});return b}
+c.onpointerdown=e=>{drag=near(e);if(drag>=0)c.setPointerCapture(e.pointerId)}
+c.onpointermove=e=>{if(drag<0)return;let q=c.getBoundingClientRect(),px=(e.clientX-q.left)*W/q.width,py=(e.clientY-q.top)*H/q.height;pts[drag].x=Math.max(0,Math.min(100,invX(px)));pts[drag].y=Math.max(0,Math.min(100,invY(py)));draw()}
+c.onpointerup=()=>drag=-1;draw();
+</script></body></html>

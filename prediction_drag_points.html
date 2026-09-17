@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prediction — Drag Points</title>
+<style>
+body{font-family:Arial;margin:0;background:#f4f6f8;color:#20252b}.wrap{max-width:1050px;margin:20px auto;padding:0 16px}.card{background:white;border:1px solid #ddd;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 8px #0001}
+h1{margin:0 0 5px}.muted{color:#667085}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}label{font-weight:bold}input{box-sizing:border-box;width:100%;padding:10px;margin-top:6px;border:1px solid #bbb;border-radius:8px;font-size:16px}
+button{padding:9px 13px;border:1px solid #bbb;border-radius:8px;background:white;cursor:pointer;margin:4px 3px 0 0}canvas{width:100%;height:auto;border:1px solid #ddd;border-radius:10px;touch-action:none}.result{background:#f1f5f9;border-radius:10px;padding:14px;margin-top:10px}.big{font-size:32px;font-weight:bold}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+<h1>Prediction: Input → Output → Decision</h1><div class="muted">Drag observations to change the fitted regression model.</div>
+<div class="card"><div class="grid"><div><label>Input X</label><input id="xin" type="number" min="0" max="100" value="70" oninput="update()"></div><div><label>Decision threshold for predicted Y</label><input id="th" type="number" value="65" oninput="update()"></div></div>
+<button onclick="preset('positive')">Positive</button><button onclick="preset('negative')">Negative</button><button onclick="preset('none')">Noisy</button><button onclick="reset()">Reset</button></div>
+<div class="card"><canvas id="c" width="1000" height="540"></canvas></div>
+<div class="card"><div class="result">Predicted Y<div class="big" id="pred">—</div></div>
+<p><b>Regression equation:</b> <span id="eq">—</span></p><p><b>Correlation:</b> <span id="r">—</span> &nbsp; <b>R²:</b> <span id="r2">—</span></p>
+<div class="result"><b>Subsequent decision</b><p id="decision">—</p></div></div>
+<div class="card"><b>Teaching idea:</b> First ask students to predict the output from the scatterplot. Then change X, move a few points, and show how both the prediction and decision can change.</div>
+</div>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d'),W=c.width,H=c.height,p={l:70,r:30,t:30,b:60};
+const original=[[12,22],[20,28],[28,34],[36,40],[45,47],[53,51],[61,59],[70,65],[79,73],[88,80]];let pts=original.map(a=>({x:a[0],y:a[1]})),drag=-1;
+const X=v=>p.l+v/100*(W-p.l-p.r),Y=v=>H-p.b-v/100*(H-p.t-p.b);
+function invX(v){return(v-p.l)/(W-p.l-p.r)*100}function invY(v){return(H-p.b-v)/(H-p.t-p.b)*100}
+function stat(){let n=pts.length,mx=pts.reduce((s,a)=>s+a.x,0)/n,my=pts.reduce((s,a)=>s+a.y,0)/n,A=0,B=0,C=0;pts.forEach(q=>{A+=(q.x-mx)**2;B+=(q.y-my)**2;C+=(q.x-mx)*(q.y-my)});let b=C/A,a=my-b*mx,r=C/Math.sqrt(A*B);return{a,b,r}}
+function draw(){g.clearRect(0,0,W,H);g.strokeStyle="#d8dee6";for(let v=0;v<=100;v+=20){g.beginPath();g.moveTo(X(v),Y(0));g.lineTo(X(v),Y(100));g.stroke();g.beginPath();g.moveTo(X(0),Y(v));g.lineTo(X(100),Y(v));g.stroke()}g.strokeStyle="#344054";g.lineWidth=2;g.beginPath();g.moveTo(X(0),Y(0));g.lineTo(X(100),Y(0));g.moveTo(X(0),Y(0));g.lineTo(X(0),Y(100));g.stroke();g.fillStyle="#475467";g.font="14px Arial";for(let v=0;v<=100;v+=20){g.fillText(v,X(v)-5,H-25);g.fillText(v,35,Y(v)+5)}g.fillText("X variable",W/2-30,H-10);let s=stat();g.strokeStyle="#667085";g.lineWidth=3;g.beginPath();g.moveTo(X(0),Y(s.a));g.lineTo(X(100),Y(s.a+s.b*100));g.stroke();pts.forEach(q=>{g.beginPath();g.arc(X(q.x),Y(q.y),9,0,7);g.fillStyle="#2563eb";g.fill();g.strokeStyle="white";g.stroke()});update()}
+function update(){if(!pts.length)return;let s=stat(),xx=Number(document.getElementById('xin').value),yy=s.a+s.b*xx,t=Number(document.getElementById('th').value);document.getElementById('pred').textContent=yy.toFixed(2);document.getElementById('eq').textContent="Ŷ = "+s.a.toFixed(2)+" + "+s.b.toFixed(3)+"X";document.getElementById('r').textContent=s.r.toFixed(3);document.getElementById('r2').textContent=(s.r*s.r).toFixed(3);document.getElementById('decision').textContent=yy>=t?"Predicted Y is at or above the threshold → ABOVE THRESHOLD.":"Predicted Y is below the threshold → BELOW THRESHOLD."}
+function set(a){pts=a.map(q=>({x:q[0],y:q[1]}));draw()}function reset(){set(original)}
+function preset(t){let a=[];for(let i=0;i<10;i++){let xx=10+i*9;if(t=="positive")a.push([xx,15+i*7+(i%3-1)*4]);if(t=="negative")a.push([xx,88-i*7+(i%3-1)*4]);if(t=="none")a.push([xx,[55,20,78,42,67,30,83,48,71,26][i]])}set(a)}
+function near(e){let q=c.getBoundingClientRect(),mx=(e.clientX-q.left)*W/q.width,my=(e.clientY-q.top)*H/q.height,b=-1,d=20;pts.forEach((a,i)=>{let z=Math.hypot(X(a.x)-mx,Y(a.y)-my);if(z<d){d=z;b=i}});return b}
+c.onpointerdown=e=>{drag=near(e);if(drag>=0)c.setPointerCapture(e.pointerId)};c.onpointermove=e=>{if(drag<0)return;let q=c.getBoundingClientRect(),px=(e.clientX-q.left)*W/q.width,py=(e.clientY-q.top)*H/q.height;pts[drag].x=Math.max(0,Math.min(100,invX(px)));pts[drag].y=Math.max(0,Math.min(100,invY(py)));draw()};c.onpointerup=()=>drag=-1;draw();
+</script></body></html>
