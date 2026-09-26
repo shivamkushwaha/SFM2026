@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AHP Decision Analyzer</title>
+<style>
+:root{
+  --bg:#f6f8fb; --card:#ffffff; --text:#172033; --muted:#657084;
+  --border:#dce2ea; --accent:#315efb; --accent-soft:#eef2ff; --track:#e3e8f0;
+  --good:#18864b; --warn:#b7791f; --bad:#c53030;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.4}
+.container{max-width:1200px;margin:0 auto;padding:28px 18px 45px}
+h1{margin:0 0 7px;font-size:28px}
+h2{font-size:17px;margin:0 0 12px}
+h3{font-size:15px;margin:18px 0 6px}
+.subtitle{color:var(--muted);margin:0 0 20px;line-height:1.5;max-width:82ch}
+.viewtitle{font-size:21px;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:18px}
+.card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.card-head>div:first-child{flex:1;min-width:220px}
+label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}
+select,input[type=text],input[type=number]{width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:9px;font-size:14px;background:#fff;color:var(--text);font-family:inherit}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;font-family:inherit;font-size:14px}
+button.secondary{background:#edf0f5;color:var(--text)}
+button.small{padding:6px 11px;font-size:13px}
+button.linkish{background:none;color:var(--accent);padding:0;text-decoration:underline;font-size:inherit}
+button:hover{filter:brightness(.97)}
+button:disabled{opacity:.45;cursor:default}
+.small-note{font-size:13px;color:var(--muted);line-height:1.5;margin:4px 0 0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.actions.right{justify-content:flex-end}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;text-align:left;color:var(--text);display:flex;gap:10px;align-items:center;font-weight:400}
+.step .num{width:26px;height:26px;border-radius:50%;background:#edf0f5;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.step.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.step.active .num{background:var(--accent);color:#fff}
+.step .lbl{display:block;font-weight:800;font-size:14px}
+.step .st{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:1px}
+.st.good{color:var(--good)} .st.warn{color:var(--warn)} .st.bad{color:var(--bad)}
+@media(max-width:760px){.steps{grid-template-columns:repeat(2,1fr)}}
+.stepnav{display:flex;justify-content:space-between;gap:10px;margin-top:4px}
+
+/* set up */
+.counts{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:10px}
+.names{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.qrow{display:grid;grid-template-columns:2fr 1.2fr 1.2fr;gap:10px;margin-top:10px}
+@media(max-width:640px){.qrow{grid-template-columns:1fr}}
+.plan{background:var(--accent-soft);border-radius:10px;padding:12px 14px;color:#30426f;font-size:14px;line-height:1.55;margin:16px 0 4px}
+
+/* layout */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.summary{position:sticky;top:15px}
+@media(max-width:900px){.summary{position:static}}
+
+/* chips for criteria */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:8px 13px;display:flex;align-items:center;gap:8px;font-size:13px}
+.chip.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--good);flex:none}
+.dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)} .dot.miss{background:#b8c2d1}
+.badge{font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;background:var(--accent-soft);color:#30426f;white-space:nowrap}
+.badge.data{background:#eaf7ef;color:var(--good)}
+
+/* pairwise sliders */
+.cmp{padding:14px 8px 12px;border-top:1px solid var(--border);border-radius:0}
+.cmps>.cmp:first-child{border-top:0;padding-top:6px}
+.cmp.flash{background:#fff7e6;border-radius:10px}
+.ends{display:flex;justify-content:space-between;gap:12px;font-weight:700;font-size:15px}
+.ends span:last-child{text-align:right}
+.ends .fav{color:var(--accent);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.slider{position:relative;height:36px;margin-top:6px}
+.slider .track{position:absolute;left:12px;right:12px;top:15px;height:6px;border-radius:999px;background:var(--track)}
+.slider .fill{position:absolute;top:0;bottom:0;background:var(--accent);border-radius:999px}
+.slider .mid{position:absolute;left:50%;top:-4px;width:2px;height:14px;margin-left:-1px;background:#b8c2d1;border-radius:1px}
+.slider input[type=range]{position:absolute;left:0;top:0;width:100%;height:36px;margin:0;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;touch-action:pan-y}
+input[type=range]::-webkit-slider-runnable-track{height:6px;background:transparent}
+input[type=range]::-moz-range-track{height:6px;background:transparent}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;box-sizing:border-box;width:24px;height:24px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 1px 5px #0003;margin-top:-9px}
+input[type=range]::-moz-range-thumb{box-sizing:border-box;width:24px;height:24px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 1px 5px #0003}
+.ticks{display:flex;justify-content:space-between;padding:0 12px;font-size:11px;color:var(--muted)}
+.ticks span{width:0;display:flex;justify-content:center}
+.ticks span.m{color:var(--text);font-weight:800}
+.readout{margin:6px 0 0;font-size:14px;font-weight:600;color:#30426f}
+
+/* summary panel */
+.metric{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
+.metric strong{font-size:15px;font-variant-numeric:tabular-nums}
+.status{margin-top:14px;padding:12px;border-radius:10px;font-weight:800;text-align:center;font-size:14px}
+.status.good{background:#eaf7ef;color:var(--good)}
+.status.warn{background:#fff7e6;color:var(--warn)}
+.status.bad{background:#fdecec;color:var(--bad)}
+.hintline{font-size:13px;line-height:1.5;margin:10px 0 0;color:var(--text)}
+.weights{margin-top:18px}
+.weights h2{font-size:15px;margin-bottom:6px}
+.weight-row{display:grid;grid-template-columns:1fr 62px;gap:10px;align-items:center;margin:8px 0;font-size:13px}
+.weight-row strong{text-align:right;font-variant-numeric:tabular-nums}
+.wname{font-weight:700;margin-bottom:4px}
+.bar{height:8px;background:#e8ecf2;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s ease}
+.bar.big{height:14px}
+.hint{background:var(--accent-soft);padding:10px 12px;border-radius:10px;color:#30426f;font-size:12px;line-height:1.45;margin-top:14px}
+
+/* tables */
+.scroll{overflow-x:auto}
+.tbl{border-collapse:collapse;width:100%}
+.tbl th,.tbl td{border:1px solid var(--border);padding:8px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
+.tbl th{background:#f4f6f9;font-weight:800}
+.tbl .left{text-align:left}
+.tbl td.diag{background:#f8fafc;font-weight:700}
+.tbl td.upper{color:#1f4ed8;font-weight:700}
+.tbl td.lower{color:#9a3412}
+.tbl td.prio{background:var(--accent-soft);font-weight:800}
+.tbl .thsub{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:2px}
+.tbl tr.toprow td{font-weight:800}
+.tbl.data td{text-align:left}
+.tbl.data input{max-width:180px}
+.pbar{display:grid;grid-template-columns:1fr 58px;gap:8px;align-items:center}
+.pbar span{text-align:right;font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:12px 0 14px}
+.seg button{background:#fff;color:var(--text);border-radius:0;padding:8px 13px;font-size:13px}
+.seg button.on{background:var(--accent);color:#fff}
+.warnline{color:var(--bad);font-weight:700;font-size:13px;margin:8px 0 0}
+.inline{display:flex;gap:8px;align-items:center}
+.inline label{margin:0;white-space:nowrap}
+.inline select{width:auto}
+
+/* results */
+.rank-row{display:grid;grid-template-columns:32px minmax(110px,28%) 1fr 64px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.rank-row:last-of-type{border-bottom:0}
+.rank-row .pos{width:28px;height:28px;border-radius:50%;background:#edf0f5;display:grid;place-items:center;font-weight:800;font-size:13px}
+.rank-row.top .pos{background:var(--accent);color:#fff}
+.rank-row .rname{font-weight:700}
+.rank-row strong{text-align:right;font-variant-numeric:tabular-nums}
+.note{border-left:4px solid var(--warn);background:#fff7e6;padding:10px 12px;border-radius:0 10px 10px 0;margin-bottom:18px;font-size:14px}
+.issues{margin:0;padding-left:20px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>AHP Decision Analyzer</h1>
+  <p class="subtitle">Start with the alternatives you are choosing between, then set up the criteria. Qualitative criteria are judged by pairwise comparison of the alternatives; quantitative criteria are scored directly from measured data. Weigh the criteria, rate the alternatives, and read the final ranking. Every result updates live.</p>
+
+  <nav class="steps" role="tablist" aria-label="Steps">
+    <button type="button" class="step" role="tab" data-step="0"><span class="num">1</span><span><span class="lbl">Set up</span><span class="st"></span></span></button>
+    <button type="button" class="step" role="tab" data-step="1"><span class="num">2</span><span><span class="lbl">Weigh criteria</span><span class="st"></span></span></button>
+    <button type="button" class="step" role="tab" data-step="2"><span class="num">3</span><span><span class="lbl">Rate alternatives</span><span class="st"></span></span></button>
+    <button type="button" class="step" role="tab" data-step="3"><span class="num">4</span><span><span class="lbl">Results</span><span class="st"></span></span></button>
+  </nav>
+
+  <main id="view"></main>
+
+  <div class="stepnav">
+    <button type="button" class="secondary" id="prevBtn">Back</button>
+    <button type="button" id="nextBtn">Next</button>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- constants ---------- */
+const MAX_ALT = 7, MAX_Q = 7;
+const RI = {1:0,2:0,3:0.58,4:0.90,5:1.12,6:1.24,7:1.32,8:1.41,9:1.45,10:1.49,11:1.51,12:1.48,13:1.56,14:1.57};
+const WORDS = {2:"equally to moderately",3:"moderately",4:"moderately to strongly",5:"strongly",6:"strongly to very strongly",7:"very strongly",8:"very strongly to extremely",9:"extremely"};
+const LEVEL_TEXT = {
+  na:"Two items: consistent by construction",
+  good:"CR ≤ 0.10: acceptable consistency",
+  warn:"CR above 0.10: review the judgments",
+  bad:"CR above 0.20: revise the judgments"
+};
+
+/* ---------- state ---------- */
+let uid = 0;
+const newId = p => p + (++uid);
+function fresh(){
+  return {
+    goal:"",
+    altPool: Array.from({length:MAX_ALT}, (_,k) => ({id:newId("a"), def:`Alternative ${k+1}`, name:""})),
+    qualPool: Array.from({length:MAX_Q}, (_,k) => ({id:newId("q"), type:"qual", def:`Qualitative ${k+1}`, name:"", pw:{}})),
+    quantPool: Array.from({length:MAX_Q}, (_,k) => ({id:newId("n"), type:"quant", def:`Quantitative ${k+1}`, name:"", unit:"", dir:"max", data:{}})),
+    nAlt:3, nQual:2, nQuant:1,
+    cw:{},            // pairwise judgments among criteria, keyed by "idA|idB"
+    step:0, critTab:null, cellMode:"local"
+  };
+}
+let S = fresh();
+
+/* ---------- helpers ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const esc = t => String(t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nm = x => (x.name || "").trim() || x.def;
+const alts = () => S.altPool.slice(0, S.nAlt);
+const crits = () => [...S.qualPool.slice(0, S.nQual), ...S.quantPool.slice(0, S.nQuant)];
+const findCrit = id => [...S.qualPool, ...S.quantPool].find(c => c.id === id);
+const pl = (k, one, many) => k === 1 ? one : many;
+const pct = (x, d=1) => (x*100).toFixed(d) + "%";
+const fmt = (x, d=3) => Number.isFinite(x) ? x.toFixed(d) : "n/a";
+function el(tag, cls, html){ const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+function listText(xs){ return xs.length <= 1 ? (xs[0] || "") : xs.slice(0,-1).join(", ") + " and " + xs[xs.length-1]; }
+
+/* ---------- AHP mathematics ---------- */
+// A judgment s runs from -8 to 8: s > 0 favours the first item with Saaty value s+1, s < 0 favours the second.
+const val = s => s >= 0 ? s + 1 : 1 / (1 - s);
+function getJ(map, a, b){
+  if ((a+"|"+b) in map) return map[a+"|"+b];
+  if ((b+"|"+a) in map) return -map[b+"|"+a];
+  return 0;
+}
+function setJ(map, a, b, s){ delete map[b+"|"+a]; map[a+"|"+b] = s; }
+function matrix(ids, map){
+  const n = ids.length, A = Array.from({length:n}, () => Array(n).fill(1));
+  for (let i=0;i<n;i++) for (let j=i+1;j<n;j++){ A[i][j] = val(getJ(map, ids[i], ids[j])); A[j][i] = 1 / A[i][j]; }
+  return A;
+}
+function analyse(A){
+  const n = A.length;
+  let w = Array(n).fill(1/n);
+  for (let it=0; it<1000; it++){
+    const z = A.map(r => r.reduce((s,x,j) => s + x*w[j], 0));
+    const t = z.reduce((a,b) => a+b, 0);
+    const nw = z.map(x => x/t);
+    const d = Math.max(...nw.map((x,k) => Math.abs(x - w[k])));
+    w = nw; if (d < 1e-12) break;
+  }
+  const Aw = A.map(r => r.reduce((s,x,j) => s + x*w[j], 0));
+  const lambda = Aw.reduce((s,x,i) => s + x/w[i], 0) / n;
+  const ri = RI[n] ?? 1.57;
+  const ci = n > 2 ? Math.max(0, (lambda - n)/(n - 1)) : 0;
+  const cr = n > 2 ? ci / ri : 0;
+  const level = n <= 2 ? "na" : cr <= 0.10 ? "good" : cr <= 0.20 ? "warn" : "bad";
+  return {w, lambda, ci, ri, cr, n, level};
+}
+function worst(A, w){
+  let best = null, m = -1;
+  for (let i=0;i<A.length;i++) for (let j=i+1;j<A.length;j++){
+    const e = Math.abs(Math.log(A[i][j]*w[j]/w[i]));
+    if (e > m){ m = e; best = {i, j, implied: w[i]/w[j]}; }
+  }
+  return best;
+}
+function frac(x){
+  if (x >= 1){ const r = Math.round(x); return Math.abs(x - r) < 1e-9 ? String(r) : x.toFixed(3); }
+  const r = Math.round(1/x); return Math.abs(1/x - r) < 1e-9 ? "1/" + r : x.toFixed(3);
+}
+function quantInfo(c){
+  const as = alts();
+  const v = as.map(a => { const t = String(c.data[a.id] ?? "").trim(); return t === "" ? NaN : Number(t); });
+  const missing = as.filter((a,k) => !(Number.isFinite(v[k]) && v[k] > 0)).map(nm);
+  if (missing.length) return {ok:false, v, missing};
+  const t = c.dir === "max" ? v : v.map(x => 1/x);
+  const s = t.reduce((a,b) => a+b, 0);
+  return {ok:true, v, w:t.map(x => x/s), missing:[]};
+}
+function localInfo(c){
+  if (c.type === "qual"){ const A = matrix(alts().map(a => a.id), c.pw); const r = analyse(A); return {ok:true, w:r.w, r}; }
+  const q = quantInfo(c); return {ok:q.ok, w:q.w, q};
+}
+function critAnalysis(){ const cs = crits(); return analyse(matrix(cs.map(c => c.id), S.cw)); }
+function chipLevel(c){
+  if (c.type === "quant") return quantInfo(c).ok ? "good" : "miss";
+  const r = analyse(matrix(alts().map(a => a.id), c.pw));
+  return r.level === "na" ? "good" : r.level;
+}
+function compute(){
+  const cs = crits(), as = alts();
+  if (!cs.length) return {ok:false, why:["Add at least one criterion in Set up."]};
+  const critR = critAnalysis();
+  const L = cs.map(localInfo);
+  const bad = cs.filter((c,k) => !L[k].ok);
+  if (bad.length) return {ok:false, why: bad.map(c => `Enter a positive value for every alternative under ${nm(c)}.`), jump: bad[0].id};
+  const cw = critR.w;
+  const score = as.map((a,i) => cs.reduce((s,c,k) => s + cw[k]*L[k].w[i], 0));
+  const rank = score.map(s => 1 + score.filter(t => t > s + 1e-12).length);
+  const ranked = as.map((a,i) => ({a, i, score:score[i]})).sort((x,y) => y.score - x.score);
+  return {ok:true, cs, as, cw, critR, L, score, rank, ranked};
+}
+
+/* ---------- shared widgets ---------- */
+function readout(kind, a, b, s, cName){
+  if (s === 0) return kind === "crit" ? `${a} and ${b} are equally important (1)` : `${a} and ${b} are equally good on ${cName} (1)`;
+  const v = Math.abs(s) + 1, win = s > 0 ? a : b, lose = s > 0 ? b : a;
+  return kind === "crit" ? `${win} is ${WORDS[v]} more important than ${lose} (${v})` : `${win} is ${WORDS[v]} preferred to ${lose} on ${cName} (${v})`;
+}
+function weightBars(names, w){
+  return names.map((n,i) => `<div class="weight-row"><div><div class="wname">${esc(n)}</div><div class="bar"><i style="width:${(w[i]*100).toFixed(2)}%"></i></div></div><strong>${pct(w[i])}</strong></div>`).join("");
+}
+function matrixTable(names, A, w, useFrac){
+  let h = `<table class="tbl"><thead><tr><th></th>${names.map(n => `<th>${esc(n)}</th>`).join("")}<th>Priority</th></tr></thead><tbody>`;
+  A.forEach((row,i) => {
+    h += `<tr><th>${esc(names[i])}</th>`;
+    row.forEach((x,j) => { const c = i === j ? "diag" : i < j ? "upper" : "lower"; h += `<td class="${c}">${useFrac ? frac(x) : x.toFixed(3)}</td>`; });
+    h += `<td class="prio">${w[i].toFixed(3)}</td></tr>`;
+  });
+  return h + "</tbody></table>";
+}
+function summaryPanel(weightsTitle){
+  const a = el("aside", "card summary");
+  a.innerHTML = `<h2>Live AHP results</h2>
+    <div class="metric"><span>λ<sub>max</sub></span><strong data-m="lambda"></strong></div>
+    <div class="metric"><span>Consistency Index (CI)</span><strong data-m="ci"></strong></div>
+    <div class="metric"><span>Random Index (RI)</span><strong data-m="ri"></strong></div>
+    <div class="metric"><span>Consistency Ratio (CR)</span><strong data-m="cr"></strong></div>
+    <div class="status" data-m="status"></div>
+    <div data-m="hint"></div>
+    <div class="weights"><h2>${weightsTitle}</h2><div data-m="weights"></div></div>
+    <div class="hint"><b>Interpretation:</b> AHP commonly treats CR ≤ 0.10 as acceptable consistency. With only two items the single judgment is consistent by construction, so CR is not assessed.</div>`;
+  return a;
+}
+function twoStep(btn, action){
+  const label = btn.textContent; let armed = false, t;
+  btn.addEventListener("click", () => {
+    if (!armed){ armed = true; btn.textContent = "Click again to confirm"; t = setTimeout(() => { armed = false; btn.textContent = label; }, 3000); return; }
+    clearTimeout(t); action();
+  });
+}
+
+/* ---------- pairwise editor (criteria or alternatives) ---------- */
+function pairwise(container, cfg){
+  const {items, map, kind, crit} = cfg;
+  const ids = items.map(x => x.id), names = items.map(nm), n = items.length;
+  const cName = crit ? nm(crit) : "";
+  const grid = el("div", "grid"), left = el("div");
+  const card = el("section", "card");
+  card.innerHTML = `<div class="card-head"><div>
+      <h2>${kind === "crit" ? "Pairwise comparison of criteria" : "Pairwise comparison of alternatives on " + esc(cName)}</h2>
+      <p class="small-note">${kind === "crit" ? "Slide toward the criterion you consider more important." : "Slide toward the alternative that is better on " + esc(cName) + "."} The further you slide, the stronger the preference. The middle means equal.</p>
+    </div><button type="button" class="secondary small" data-reset>Reset</button></div>
+    <div class="cmps"></div>`;
+  const cmps = $(".cmps", card), rows = [];
+  for (let i=0;i<n;i++) for (let j=i+1;j<n;j++){
+    const row = el("div", "cmp");
+    row.innerHTML = `<div class="ends"><span data-side="L">${esc(names[i])}</span><span data-side="R">${esc(names[j])}</span></div>
+      <div class="slider"><div class="track"><span class="fill"></span><span class="mid"></span></div>
+      <input type="range" min="-8" max="8" step="1" value="0" aria-label="${esc(names[i])} compared with ${esc(names[j])}"></div>
+      <div class="ticks" aria-hidden="true">${[9,7,5,3,1,3,5,7,9].map((t,q) => `<span${q === 4 ? ' class="m"' : ""}>${t}</span>`).join("")}</div>
+      <p class="readout" aria-live="polite"></p>`;
+    const inp = $("input", row), fill = $(".fill", row);
+    const paint = () => {
+      const s = getJ(map, ids[i], ids[j]);
+      inp.value = String(-s);                       // left end favours the item named on the left
+      $(".readout", row).textContent = readout(kind, names[i], names[j], s, cName);
+      $('[data-side="L"]', row).classList.toggle("fav", s > 0);
+      $('[data-side="R"]', row).classList.toggle("fav", s < 0);
+      const f = (8 - s) / 16, lo = Math.min(f, .5), hi = Math.max(f, .5);
+      fill.style.left = (lo*100) + "%"; fill.style.width = ((hi - lo)*100) + "%";
+    };
+    inp.addEventListener("input", () => { setJ(map, ids[i], ids[j], -Number(inp.value)); paint(); update(); });
+    rows.push({row, paint, i, j});
+    cmps.appendChild(row);
+  }
+  const mcard = el("section", "card");
+  mcard.innerHTML = `<h2>Pairwise comparison matrix</h2><div class="scroll" data-mtx></div>
+    <p class="small-note">Entries above the diagonal come from the sliders and entries below it are their reciprocals. The last column is the priority vector, the principal eigenvector normalised to sum to 1.</p>`;
+  left.append(card, mcard);
+  const aside = summaryPanel(kind === "crit" ? "Criteria weights" : "Local priorities on " + esc(cName));
+  grid.append(left, aside);
+  container.appendChild(grid);
+
+  function update(){
+    const A = matrix(ids, map), r = analyse(A);
+    $('[data-m="lambda"]', aside).textContent = fmt(r.lambda, 4);
+    $('[data-m="ci"]', aside).textContent = fmt(r.ci, 4);
+    $('[data-m="ri"]', aside).textContent = fmt(r.ri, 2);
+    $('[data-m="cr"]', aside).textContent = r.n <= 2 ? "n/a" : fmt(r.cr, 4);
+    const st = $('[data-m="status"]', aside);
+    st.className = "status " + (r.level === "na" ? "good" : r.level);
+    st.textContent = LEVEL_TEXT[r.level];
+    const hint = $('[data-m="hint"]', aside); hint.innerHTML = "";
+    if (r.level === "warn" || r.level === "bad"){
+      const wo = worst(A, r.w);
+      const fav = wo.implied >= 1 ? names[wo.i] : names[wo.j];
+      const imp = wo.implied >= 1 ? wo.implied : 1/wo.implied;
+      hint.innerHTML = `<p class="hintline">Most out of line: <b>${esc(names[wo.i])}</b> against <b>${esc(names[wo.j])}</b>. Your other answers point to about ${imp.toFixed(1)} in favour of ${esc(fav)}, close to ${Math.min(9, Math.max(1, Math.round(imp)))} on the scale. <button type="button" class="linkish" data-show>Show me</button></p>`;
+      $("[data-show]", hint).onclick = () => {
+        const t = rows.find(x => x.i === wo.i && x.j === wo.j);
+        t.row.scrollIntoView({behavior:"smooth", block:"center"});
+        t.row.classList.add("flash"); setTimeout(() => t.row.classList.remove("flash"), 1600);
+        $("input", t.row).focus({preventScroll:true});
+      };
+    }
+    $('[data-m="weights"]', aside).innerHTML = weightBars(names, r.w);
+    $("[data-mtx]", mcard).innerHTML = matrixTable(names, A, r.w, true);
+    refreshChips(); refreshNav();
+  }
+  $("[data-reset]", card).onclick = () => {
+    rows.forEach(x => { delete map[ids[x.i]+"|"+ids[x.j]]; delete map[ids[x.j]+"|"+ids[x.i]]; x.paint(); });
+    update();
+  };
+  rows.forEach(x => x.paint());
+  update();
+}
+
+/* ---------- data editor (quantitative criteria) ---------- */
+function dataEditor(container, c){
+  const as = alts(), names = as.map(nm), unit = (c.unit || "").trim();
+  const grid = el("div", "grid"), left = el("div");
+  const card = el("section", "card");
+  card.innerHTML = `<h2>Data for ${esc(nm(c))}</h2>
+    <p class="small-note">Enter the measured value of each alternative${unit ? " in " + esc(unit) : ""}. Values must be positive numbers.</p>
+    <div class="seg" role="group" aria-label="Direction of preference"><button type="button" data-d="max">Higher is better</button><button type="button" data-d="min">Lower is better</button></div>
+    <div class="scroll"><table class="tbl data"><thead><tr><th>Alternative</th><th>Value${unit ? " (" + esc(unit) + ")" : ""}</th><th>Local priority</th></tr></thead><tbody>
+    ${as.map((a,k) => `<tr><td class="left"><b>${esc(names[k])}</b></td><td><input type="number" inputmode="decimal" step="any" min="0" data-a="${a.id}" value="${esc(c.data[a.id] ?? "")}" aria-label="${esc(names[k])} value"></td><td><div class="pbar"><div class="bar"><i></i></div><span></span></div></td></tr>`).join("")}
+    </tbody></table></div>
+    <p class="small-note" data-formula></p><div data-miss></div>`;
+  const mcard = el("section", "card");
+  mcard.innerHTML = `<h2>Implied pairwise matrix</h2><div class="scroll" data-mtx></div>
+    <p class="small-note">Each entry is the ratio of two priorities, so the matrix is perfectly consistent and its CR is 0. This is what the pairwise sliders would give if every judgment followed the data exactly.</p>`;
+  left.append(card, mcard);
+  const aside = el("aside", "card summary");
+  aside.innerHTML = `<h2>Local priorities on ${esc(nm(c))}</h2><div data-m="weights"></div><div class="status" data-m="status"></div>
+    <div class="hint"><b>How it works:</b> quantitative criteria skip pairwise judgment. The data are turned into priorities on a ratio scale, so an alternative with twice the value (or half the value, when lower is better) gets twice the priority.</div>`;
+  grid.append(left, aside);
+  container.appendChild(grid);
+
+  function update(){
+    $$(".seg button", card).forEach(b => { const on = b.dataset.d === c.dir; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
+    $("[data-formula]", card).textContent = c.dir === "max"
+      ? "Higher is better: priority = value ÷ sum of all values."
+      : "Lower is better: priority = (1 ÷ value) ÷ sum of (1 ÷ value) over all alternatives.";
+    const q = quantInfo(c);
+    $$("tbody tr", card).forEach((tr,k) => {
+      $(".bar i", tr).style.width = q.ok ? (q.w[k]*100).toFixed(2) + "%" : "0";
+      $(".pbar span", tr).textContent = q.ok ? pct(q.w[k]) : "…";
+    });
+    $("[data-miss]", card).innerHTML = q.ok ? "" : `<p class="warnline">Enter a positive value for ${esc(listText(q.missing))}.</p>`;
+    $('[data-m="weights"]', aside).innerHTML = q.ok ? weightBars(names, q.w) : `<p class="small-note">Priorities appear once every alternative has a positive value.</p>`;
+    const st = $('[data-m="status"]', aside);
+    st.className = "status " + (q.ok ? "good" : "warn");
+    st.textContent = q.ok ? "Data based: CR is 0 by construction" : "Data incomplete";
+    $("[data-mtx]", mcard).innerHTML = q.ok ? matrixTable(names, q.w.map(x => q.w.map(y => x/y)), q.w, false) : `<p class="small-note">Waiting for complete data.</p>`;
+    refreshChips(); refreshNav();
+  }
+  $$(".seg button", card).forEach(b => b.onclick = () => { c.dir = b.dataset.d; update(); });
+  $$("input[data-a]", card).forEach(inp => inp.addEventListener("input", () => { c.data[inp.dataset.a] = inp.value; update(); }));
+  update();
+}
+
+/* ---------- step 1: set up ---------- */
+function planText(){
+  const q = S.nQual, d = S.nQuant, t = q + d, a = S.nAlt;
+  if (!t) return "Choose at least one criterion to continue.";
+  const pc = t*(t-1)/2, pa = a*(a-1)/2;
+  let s = `<b>${a} alternatives</b> will be judged on the same <b>${t} ${pl(t,"criterion","criteria")}</b>: ${q} qualitative and ${d} quantitative. `;
+  s += t > 1 ? `Weighing the criteria takes ${pc} pairwise ${pl(pc,"comparison","comparisons")}. ` : `A single criterion carries the full weight, so no criteria comparisons are needed. `;
+  if (q) s += `Each qualitative criterion needs ${pa} ${pl(pa,"comparison","comparisons")} of the alternatives, ${q*pa} in all. `;
+  if (d) s += `The quantitative ${pl(d,"criterion needs","criteria need")} ${d*a} data values, one for each alternative. `;
+  s += `<br><b>Total pairwise judgments: ${pc + q*pa}.</b>`;
+  if (t > 9) s += `<br>With more than 9 criteria the judgments become hard to keep consistent. Consider grouping related criteria.`;
+  return s;
+}
+function renderSetup(view){
+  const opt = (a,b,sel) => { let s = ""; for (let k=a;k<=b;k++) s += `<option value="${k}"${k === sel ? " selected" : ""}>${k}</option>`; return s; };
+  view.innerHTML = `
+  <section class="card">
+    <h2>Decision</h2>
+    <label for="goal">What are you deciding?</label>
+    <input type="text" id="goal" value="${esc(S.goal)}" placeholder="For example: choose the site for a processing unit">
+    <div class="actions"><button type="button" class="secondary" id="exampleBtn">Load a worked example</button><button type="button" class="secondary" id="freshBtn">Start fresh</button></div>
+  </section>
+  <section class="card">
+    <h2>Alternatives</h2>
+    <p class="small-note">The options you are choosing between.</p>
+    <div class="counts"><div><label for="nAlt">Number of alternatives</label><select id="nAlt">${opt(2, MAX_ALT, S.nAlt)}</select></div></div>
+    <div class="names" id="altNames"></div>
+  </section>
+  <section class="card">
+    <h2>Criteria</h2>
+    <p class="small-note">Every alternative is judged on the same criteria. Choose how many criteria are qualitative, judged by pairwise comparison of the alternatives, and how many are quantitative, scored directly from measured data.</p>
+    <div class="counts">
+      <div><label for="nQual">Qualitative criteria (pairwise comparison)</label><select id="nQual">${opt(0, MAX_Q, S.nQual)}</select></div>
+      <div><label for="nQuant">Quantitative criteria (measured data)</label><select id="nQuant">${opt(0, MAX_Q, S.nQuant)}</select></div>
+    </div>
+    <div class="plan" id="plan"></div>
+    <div id="qualList"></div>
+    <div id="quantList"></div>
+  </section>`;
+
+  const g = $("#goal"); g.addEventListener("input", () => { S.goal = g.value; });
+
+  $("#altNames").innerHTML = alts().map((a,k) => `<div><label for="alt_${a.id}">Alternative ${k+1}</label><input type="text" id="alt_${a.id}" data-alt="${a.id}" value="${esc(a.name)}" placeholder="${esc(a.def)}"></div>`).join("");
+  $$("[data-alt]").forEach(inp => inp.addEventListener("input", () => { S.altPool.find(a => a.id === inp.dataset.alt).name = inp.value; refreshNav(); }));
+
+  const qs = S.qualPool.slice(0, S.nQual), ns = S.quantPool.slice(0, S.nQuant);
+  $("#qualList").innerHTML = qs.length ? `<h3>Qualitative criteria</h3><p class="small-note">You will compare the alternatives two at a time on each of these.</p>
+    <div class="names">${qs.map((c,k) => `<div><label for="c_${c.id}">Qualitative ${k+1}</label><input type="text" id="c_${c.id}" data-crit="${c.id}" value="${esc(c.name)}" placeholder="${esc(c.def)}"></div>`).join("")}</div>` : "";
+  $("#quantList").innerHTML = ns.length ? `<h3>Quantitative criteria</h3><p class="small-note">You will enter a measured value for each alternative. State whether a higher or a lower value is better.</p>
+    ${ns.map((c,k) => `<div class="qrow">
+      <div><label for="c_${c.id}">Quantitative ${k+1}</label><input type="text" id="c_${c.id}" data-crit="${c.id}" value="${esc(c.name)}" placeholder="${esc(c.def)}"></div>
+      <div><label for="u_${c.id}">Unit (optional)</label><input type="text" id="u_${c.id}" data-unit="${c.id}" value="${esc(c.unit)}" placeholder="For example ₹ lakh"></div>
+      <div><label for="d_${c.id}">Direction</label><select id="d_${c.id}" data-dirsel="${c.id}"><option value="max"${c.dir === "max" ? " selected" : ""}>Higher is better</option><option value="min"${c.dir === "min" ? " selected" : ""}>Lower is better</option></select></div>
+    </div>`).join("")}` : "";
+  $$("[data-crit]").forEach(inp => inp.addEventListener("input", () => { findCrit(inp.dataset.crit).name = inp.value; refreshNav(); }));
+  $$("[data-unit]").forEach(inp => inp.addEventListener("input", () => { findCrit(inp.dataset.unit).unit = inp.value; }));
+  $$("[data-dirsel]").forEach(sel => sel.addEventListener("change", () => { findCrit(sel.dataset.dirsel).dir = sel.value; refreshNav(); }));
+
+  $("#plan").innerHTML = planText();
+  const count = (id, key) => $("#" + id).addEventListener("change", e => { S[key] = Number(e.target.value); render(); $("#" + id).focus(); });
+  count("nAlt", "nAlt"); count("nQual", "nQual"); count("nQuant", "nQuant");
+  twoStep($("#exampleBtn"), loadExample);
+  twoStep($("#freshBtn"), () => { S = fresh(); render(); });
+}
+
+/* ---------- step 2: weigh criteria ---------- */
+function renderWeigh(view){
+  const cs = crits();
+  view.innerHTML = `<h2 class="viewtitle">Weigh the criteria</h2><p class="lead">${S.goal.trim() ? "For the decision: " + esc(S.goal.trim()) + ". " : ""}How much more important is one criterion than the other?</p>`;
+  if (!cs.length){ view.appendChild(el("section", "card", `<p>There are no criteria yet. Add them in <b>Set up</b>.</p>`)); return; }
+  if (cs.length === 1){ view.appendChild(el("section", "card", `<p><b>${esc(nm(cs[0]))}</b> is the only criterion, so it carries a weight of 100%. No comparisons are needed.</p>`)); return; }
+  pairwise(view, {items:cs, map:S.cw, kind:"crit"});
+}
+
+/* ---------- step 3: rate alternatives ---------- */
+function refreshChips(){
+  $$(".chip").forEach(b => {
+    const c = findCrit(b.dataset.id); if (!c) return;
+    const lv = chipLevel(c);
+    $(".dot", b).className = "dot " + (lv === "good" ? "" : lv);
+    b.title = lv === "good" ? "Ready" : lv === "miss" ? "Data incomplete" : "Consistency needs review";
+  });
+}
+function renderRate(view){
+  const cs = crits(), as = alts();
+  view.innerHTML = `<h2 class="viewtitle">Rate the alternatives on each criterion</h2><p class="lead">Pick a criterion. Qualitative criteria use pairwise comparison; quantitative criteria use your data.</p>`;
+  if (!cs.length){ view.appendChild(el("section", "card", `<p>There are no criteria yet. Add them in <b>Set up</b>.</p>`)); return; }
+  if (!cs.some(c => c.id === S.critTab)) S.critTab = cs[0].id;
+  const chips = el("div", "chips"); chips.setAttribute("role", "tablist");
+  cs.forEach(c => {
+    const b = el("button", "chip" + (c.id === S.critTab ? " active" : ""), `<span class="dot"></span><span>${esc(nm(c))}</span><span class="badge${c.type === "quant" ? " data" : ""}">${c.type === "qual" ? "Pairwise" : "Data"}</span>`);
+    b.type = "button"; b.dataset.id = c.id; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", c.id === S.critTab);
+    b.onclick = () => { S.critTab = c.id; render(false); };
+    chips.appendChild(b);
+  });
+  view.appendChild(chips);
+  const idx = cs.findIndex(c => c.id === S.critTab), c = cs[idx];
+  const body = el("div"); view.appendChild(body);
+  if (c.type === "qual") pairwise(body, {items:as, map:c.pw, kind:"alt", crit:c});
+  else dataEditor(body, c);
+  if (idx < cs.length - 1){
+    const nx = el("div", "actions right", `<button type="button" class="secondary">Next criterion: ${esc(nm(cs[idx+1]))}</button>`);
+    $("button", nx).onclick = () => { S.critTab = cs[idx+1].id; render(true); };
+    view.appendChild(nx);
+  }
+  refreshChips();
+}
+
+/* ---------- step 4: results ---------- */
+function renderResults(view){
+  const R = compute();
+  view.innerHTML = `<h2 class="viewtitle">Results</h2><p class="lead">${S.goal.trim() ? "Goal: " + esc(S.goal.trim()) : "Overall priorities of the alternatives"}</p>`;
+  if (!R.ok){
+    const c = el("section", "card", `<h2>Not ready yet</h2><ul class="issues">${R.why.map(x => `<li>${esc(x)}</li>`).join("")}</ul><div class="actions"><button type="button" data-fix>Go and fix it</button></div>`);
+    $("[data-fix]", c).onclick = () => { if (R.jump){ S.step = 2; S.critTab = R.jump; } else S.step = 0; render(true); };
+    view.appendChild(c); return;
+  }
+  const {cs, as, cw, critR, L, score, rank, ranked} = R;
+  const top = ranked[0].score;
+
+  const lead = ranked.length > 1 ? `<b>${esc(nm(ranked[0].a))}</b> leads <b>${esc(nm(ranked[1].a))}</b> by ${((ranked[0].score - ranked[1].score)*100).toFixed(1)} percentage points. ` : "";
+  const rc = el("section", "card", `<h2>Final ranking</h2>
+    ${ranked.map((x,k) => `<div class="rank-row${k === 0 ? " top" : ""}"><span class="pos">${rank[x.i]}</span><span class="rname">${esc(nm(x.a))}${k === 0 ? ' <span class="badge">Top choice</span>' : ""}</span><div class="bar big"><i style="width:${(x.score/top*100).toFixed(2)}%"></i></div><strong>${pct(x.score)}</strong></div>`).join("")}
+    <p class="small-note">${lead}Overall score = Σ over criteria of (criterion weight × local priority of the alternative). Scores add up to 100%; bars are drawn relative to the top score.</p>`);
+  view.appendChild(rc);
+
+  const flagged = [];
+  if (critR.n > 2 && critR.level !== "good") flagged.push("the criteria comparisons");
+  cs.forEach((c,k) => { if (c.type === "qual" && L[k].r.n > 2 && L[k].r.level !== "good") flagged.push(nm(c)); });
+  if (flagged.length) view.appendChild(el("div", "note", `CR is above 0.10 for ${esc(listText(flagged))}. The ranking still uses these judgments, so review them before relying on the result.`));
+
+  const sc = el("section", "card", `<div class="card-head"><h2>Synthesis table</h2>
+    <div class="inline"><label for="cellMode">Cells show</label><select id="cellMode"><option value="local">Local priority</option><option value="contrib">Weighted contribution</option></select></div></div>
+    <div class="scroll" data-tbl></div><p class="small-note" data-tnote></p>
+    <div class="actions"><button type="button" class="secondary" data-csv>Download CSV</button></div>`);
+  view.appendChild(sc);
+  const drawTable = () => {
+    let h = `<table class="tbl"><thead><tr><th class="left">Alternative</th>${cs.map((c,k) => `<th>${esc(nm(c))}<span class="thsub">${c.type === "qual" ? "Pairwise" : "Data, " + (c.dir === "max" ? "higher" : "lower") + " is better"}</span><span class="thsub">Weight ${pct(cw[k])}</span></th>`).join("")}<th>Overall score</th><th>Rank</th></tr></thead><tbody>`;
+    as.forEach((a,i) => {
+      h += `<tr${rank[i] === 1 ? ' class="toprow"' : ""}><td class="left">${esc(nm(a))}</td>${cs.map((c,k) => `<td>${(S.cellMode === "contrib" ? cw[k]*L[k].w[i] : L[k].w[i]).toFixed(3)}</td>`).join("")}<td class="prio">${score[i].toFixed(3)}</td><td>${rank[i]}</td></tr>`;
+    });
+    $("[data-tbl]", sc).innerHTML = h + "</tbody></table>";
+    $("[data-tnote]", sc).textContent = S.cellMode === "contrib"
+      ? "Each cell is criterion weight × local priority. Each row adds up to the overall score."
+      : "Each column holds the local priorities of the alternatives on that criterion and adds up to 1.";
+  };
+  const cm = $("#cellMode", sc); cm.value = S.cellMode; cm.onchange = () => { S.cellMode = cm.value; drawTable(); };
+  drawTable();
+  $("[data-csv]", sc).onclick = () => {
+    const q = v => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const lines = [];
+    if (S.goal.trim()) lines.push(["Goal", S.goal.trim()]);
+    lines.push(["Alternative", ...cs.map(nm), "Overall score", "Rank"]);
+    lines.push(["Criterion weight", ...cw.map(x => x.toFixed(4)), "", ""]);
+    lines.push(["Criterion type", ...cs.map(c => c.type === "qual" ? "Pairwise" : "Data (" + (c.dir === "max" ? "higher" : "lower") + " is better)"), "", ""]);
+    as.forEach((a,i) => lines.push([nm(a), ...cs.map((c,k) => L[k].w[i].toFixed(4)), score[i].toFixed(4), rank[i]]));
+    const blob = new Blob(["\ufeff" + lines.map(r => r.map(q).join(",")).join("\r\n")], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "ahp_results.csv"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const rowsC = [{label:"Criteria weights", n:cs.length, r:cs.length > 1 ? critR : null, single:cs.length === 1, go:() => { S.step = 1; }}]
+    .concat(cs.map((c,k) => ({label:"Alternatives on " + nm(c), n:as.length, r:c.type === "qual" ? L[k].r : null, data:c.type === "quant", go:() => { S.step = 2; S.critTab = c.id; }})));
+  const statusOf = x => x.single ? ["Single criterion", "good"] : x.data ? ["Data based, consistent", "good"] : x.r.n <= 2 ? ["Two items, consistent", "good"] : x.r.level === "good" ? ["Acceptable", "good"] : x.r.level === "warn" ? ["Review", "warn"] : ["Revise", "bad"];
+  const cc = el("section", "card", `<h2>Consistency check</h2><div class="scroll"><table class="tbl"><thead><tr><th class="left">Comparison set</th><th>Size</th><th>CR</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rowsC.map((x,k) => { const [t, c] = statusOf(x); return `<tr><td class="left">${esc(x.label)}</td><td>${x.n}</td><td>${x.r && x.r.n > 2 ? x.r.cr.toFixed(3) : x.data ? "0" : "n/a"}</td><td><span class="st ${c}"><b>${t}</b></span></td><td><button type="button" class="linkish" data-go="${k}">Open</button></td></tr>`; }).join("")}
+    </tbody></table></div>`);
+  $$("[data-go]", cc).forEach(b => b.onclick = () => { rowsC[+b.dataset.go].go(); render(true); });
+  view.appendChild(cc);
+}
+
+/* ---------- worked example ---------- */
+function loadExample(){
+  S = fresh();
+  S.goal = "Choose a family car";
+  S.nAlt = 3; S.nQual = 2; S.nQuant = 2;
+  ["Hatchback", "Sedan", "Compact SUV"].forEach((n,k) => S.altPool[k].name = n);
+  const [style, rel] = S.qualPool, [fuel, price] = S.quantPool;
+  style.name = "Style"; rel.name = "Reliability";
+  fuel.name = "Fuel economy"; fuel.unit = "km per litre"; fuel.dir = "max";
+  price.name = "Price"; price.unit = "₹ lakh"; price.dir = "min";
+  const [h, s, u] = S.altPool.map(a => a.id);
+  fuel.data = {[h]:"21", [s]:"17", [u]:"16"};
+  price.data = {[h]:"7.5", [s]:"11", [u]:"12.5"};
+  setJ(style.pw, h, s, -2); setJ(style.pw, h, u, -4); setJ(style.pw, s, u, -1);
+  setJ(rel.pw, h, s, 1);    setJ(rel.pw, h, u, 2);    setJ(rel.pw, s, u, 1);
+  const C = [style.id, rel.id, fuel.id, price.id];
+  setJ(S.cw, C[0], C[1], -2); setJ(S.cw, C[0], C[2], -1); setJ(S.cw, C[0], C[3], -3);
+  setJ(S.cw, C[1], C[2], 1);  setJ(S.cw, C[1], C[3], -1); setJ(S.cw, C[2], C[3], -2);
+  render();
+}
+
+/* ---------- navigation ---------- */
+function refreshNav(){
+  const cs = crits(), t = cs.length, st = [];
+  st[0] = t ? {t:`${S.nAlt} alternatives, ${t} ${pl(t,"criterion","criteria")}`, c:""} : {t:"Add criteria", c:"bad"};
+  if (!t) st[1] = {t:"No criteria yet", c:"bad"};
+  else if (t === 1) st[1] = {t:"One criterion, weight 100%", c:"good"};
+  else { const r = critAnalysis(); st[1] = r.n <= 2 ? {t:"Consistent by construction", c:"good"} : {t:`CR ${r.cr.toFixed(3)}`, c:r.level}; }
+  const issues = cs.filter(c => chipLevel(c) !== "good").length;
+  st[2] = !t ? {t:"No criteria yet", c:"bad"} : issues ? {t:`${issues} of ${t} need attention`, c:"warn"} : {t:"All criteria ready", c:"good"};
+  const R = compute();
+  st[3] = R.ok ? {t:"Top: " + nm(R.ranked[0].a), c:"good"} : {t:"Waiting for inputs", c:""};
+  $$(".step").forEach((b,k) => { const s = $(".st", b); s.textContent = st[k].t; s.className = "st " + st[k].c; });
+}
+function render(scrollTop){
+  $$(".step").forEach((b,k) => { b.classList.toggle("active", k === S.step); b.setAttribute("aria-selected", k === S.step); });
+  const view = $("#view"); view.innerHTML = "";
+  [renderSetup, renderWeigh, renderRate, renderResults][S.step](view);
+  $("#prevBtn").disabled = S.step === 0;
+  $("#nextBtn").style.visibility = S.step === 3 ? "hidden" : "visible";
+  $("#nextBtn").textContent = S.step === 2 ? "See results" : "Next";
+  refreshNav();
+  if (scrollTop) window.scrollTo({top:0, behavior:"smooth"});
+}
+const go = k => { S.step = Math.max(0, Math.min(3, k)); render(true); };
+$$(".step").forEach(b => b.addEventListener("click", () => go(Number(b.dataset.step))));
+$("#prevBtn").addEventListener("click", () => go(S.step - 1));
+$("#nextBtn").addEventListener("click", () => go(S.step + 1));
+
+render(false);
+})();
+</script>
+</body>
+</html>
