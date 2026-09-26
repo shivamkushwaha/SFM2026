@@ -31,7 +31,7 @@ button:hover{filter:brightness(.97)}
 .pair-value{font-size:18px;font-weight:800;color:var(--accent);white-space:nowrap}
 .scale-wrap{padding:8px 4px 4px}
 .scale-line{position:relative;height:56px;margin:0 7px}
-.scale-line:before{content:"";position:absolute;left:0;right:0;top:24px;height:6px;background:linear-gradient(90deg,#d95c5c 0%,#f0b15a 25%,#cbd5e1 50%,#76c893 75%,#3da35f 100%);border-radius:999px}
+.scale-line:before{content:"";position:absolute;left:0;right:0;top:24px;height:6px;background:linear-gradient(90deg,#3da35f 0%,#76c893 25%,#cbd5e1 50%,#f0b15a 75%,#d95c5c 100%);border-radius:999px}
 input[type=range]{position:absolute;left:0;right:0;top:10px;width:100%;height:32px;appearance:none;background:transparent;cursor:pointer}
 input[type=range]::-webkit-slider-runnable-track{height:6px;background:transparent}
 input[type=range]::-moz-range-track{height:6px;background:transparent}
@@ -90,7 +90,7 @@ td.lower{color:#9a3412}
         <div class="pair-header">
           <div>
             <div class="pair-title">Pairwise comparisons</div>
-            <div class="small-note">Positive side means the first criterion is more important. Negative side means the second criterion is more important.</div>
+            <div class="small-note">Slide toward the criterion you consider more important: left for the first, right for the second. The further you slide, the stronger the preference.</div>
           </div>
         </div>
         <div id="comparisons"></div>
@@ -212,11 +212,11 @@ td.lower{color:#9a3412}
         const line=document.createElement("div");
         line.className="scale-line";
         const range=document.createElement("input");
-        range.type="range"; range.min="-9"; range.max="9"; range.step="1"; range.value=val;
+        range.type="range"; range.min="-9"; range.max="9"; range.step="1"; range.value=-val;
         range.setAttribute("aria-label",`Importance of ${state.names[i]} compared with ${state.names[j]}`);
         range.dataset.i=i; range.dataset.j=j;
         range.addEventListener("input",()=>{
-          const x=Number(range.value);
+          const x=-Number(range.value);
           state.vals[i][j]=x;
           state.vals[j][i]=-x;
           read.textContent=labelFromSlider(x,state.names[i],state.names[j]);
@@ -225,10 +225,10 @@ td.lower{color:#9a3412}
         line.appendChild(range);
         const labels=document.createElement("div");
         labels.className="scale-labels";
-        labels.innerHTML="<span>9× second</span><span>9× first</span>";
+        labels.innerHTML="<span>9× first</span><span>9× second</span>";
         const center=document.createElement("div");
         center.className="scale-center";
-        center.textContent="← second is more important · Equal · first is more important →";
+        center.textContent="← first is more important · Equal · second is more important →";
         sw.append(line,labels,center);
         card.append(head,sw);
         comparisonsEl.appendChild(card);
